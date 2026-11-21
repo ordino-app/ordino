@@ -56,11 +56,15 @@ public struct WindowDiscovery {
         public let skipped: [SkippedWindow]
     }
 
-    /// Captures the frontmost app's focused window. Call this **before** any
-    /// ordino UI becomes active, otherwise ordino itself is "frontmost".
+    /// The focused window of the app the user is working in. When ordino itself
+    /// is frontmost (onboarding, relaunch from Finder), the last other app that
+    /// was active is used instead (see ``FrontmostAppTracker``).
     public static func focusedWindowID() -> UInt32? {
-        guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
-        let el = AXUIElementCreateApplication(app.processIdentifier)
+        let own = ProcessInfo.processInfo.processIdentifier
+        var pid = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        if pid == nil || pid == own { pid = FrontmostAppTracker.shared.lastExternalPID }
+        guard let pid, pid != own else { return nil }
+        let el = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(el, 0.25)
         guard let window = el.element(AXAttr.focusedWindow) else { return nil }
         AXUIElementSetMessagingTimeout(window, 0.25)

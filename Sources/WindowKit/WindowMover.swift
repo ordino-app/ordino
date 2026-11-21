@@ -44,7 +44,8 @@ public struct WindowMover {
             for w in appWindows {
                 guard let t = frames[w.info.id] else { continue }
                 let size = CGSize(width: t.w, height: t.h)
-                let resize = w.info.isResizable && !w.info.frame.size.isApproximately(t.size)
+                let liveSize = w.element.size(AXAttr.size).map { Size(w: $0.width, h: $0.height) }
+                let resize = w.info.isResizable && !(liveSize?.isApproximately(t.size) ?? false)
                 if resize {
                     // size -> position -> size. The first resize is best effort:
                     // it lets the move land when the old position would overflow.

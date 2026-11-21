@@ -8,6 +8,8 @@ let package = Package(
         .library(name: "Geometry", targets: ["Geometry"]),
         .library(name: "LayoutEngine", targets: ["LayoutEngine"]),
         .library(name: "WindowKit", targets: ["WindowKit"]),
+        .library(name: "ArrangeCore", targets: ["ArrangeCore"]),
+        .executable(name: "ordino", targets: ["OrdinoApp"]),
         .executable(name: "ordino-probe", targets: ["ordino-probe"]),
     ],
     targets: [
@@ -33,6 +35,21 @@ let package = Package(
             ]
         ),
 
+        // Arrange / cycle / rotate / undo logic behind a backend protocol. Testable.
+        .target(name: "ArrangeCore", dependencies: ["Geometry", "LayoutEngine"]),
+
+        // The menu bar app.
+        .executableTarget(
+            name: "OrdinoApp",
+            dependencies: ["Geometry", "LayoutEngine", "WindowKit", "ArrangeCore"],
+            linkerSettings: [
+                .linkedFramework("AppKit"),
+                .linkedFramework("SwiftUI"),
+                .linkedFramework("Carbon"),
+                .linkedFramework("ServiceManagement"),
+            ]
+        ),
+
         // Week-1 prototype CLI: discover windows, print a plan, optionally apply it.
         .executableTarget(
             name: "ordino-probe",
@@ -41,6 +58,7 @@ let package = Package(
 
         .testTarget(name: "GeometryTests", dependencies: ["Geometry"]),
         .testTarget(name: "LayoutEngineTests", dependencies: ["LayoutEngine", "Geometry"]),
+        .testTarget(name: "ArrangeCoreTests", dependencies: ["ArrangeCore", "LayoutEngine", "Geometry"]),
     ],
     swiftLanguageModes: [.v6]
 )

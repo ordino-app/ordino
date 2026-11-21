@@ -8,3 +8,4 @@ DerivedData/
 *.dmg
 *.zip
 dist/
+build/

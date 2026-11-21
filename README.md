@@ -2,7 +2,24 @@
 
 **Every window, in its place.** ordino is a free, open-source macOS menu bar app that arranges *all* windows on a display with one keystroke. With 4 windows you get a 2x2 grid, with 3 a master + stack, and so on. It adapts to the window count and the display shape (laptop, ultrawide, portrait), respects minimum window sizes, and can be undone.
 
-> Status: **early prototype** (week 1). The layout engine is done and tested; the menu bar app is next.
+> Status: **early prototype**. Layout engine, window layer and a first menu bar app work; signing, auto-update and settings come next.
+
+## Use the app
+
+```bash
+make run-app     # builds build/ordino.app and launches it
+```
+
+| Shortcut | Action |
+|---|---|
+| ⌃⌥⌘A | Arrange the display under the mouse. Press again within 2 s for the next layout |
+| ⌃⌥⌘→ / ⌃⌥⌘← | Next / previous layout |
+| ⌃⌥⌘R | Rotate windows through the slots |
+| ⌃⌥⌘Z | Undo (a run of quick presses is one step) |
+
+In the menu: hover or use ←/→ to preview a layout, Return or 1-9 to apply, ⌘Z to undo, Esc to close.
+
+Development builds are signed ad hoc, so macOS asks for Accessibility again after every rebuild. A free "Apple Development" certificate (Xcode > Settings > Accounts > Manage Certificates) makes the permission stick; `scripts/bundle-app.sh` picks it up automatically.
 
 ## Why
 
@@ -16,6 +33,8 @@ Rectangle, Magnet and macOS' own tiling place windows one at a time. Amethyst, y
 | `Sources/LayoutEngine` | Pure, deterministic layout planner: layout trees, smart defaults, slot assignment, min-size repair |
 | `Sources/AXPrivate` | C shim for `_AXUIElementGetWindow` |
 | `Sources/WindowKit` | Accessibility + CoreGraphics: displays, window discovery, moving windows |
+| `Sources/ArrangeCore` | Arrange / cycle / rotate / undo logic behind a backend protocol (tested with a fake) |
+| `Sources/OrdinoApp` | The menu bar app: status item, panel, HUD, onboarding, global hotkeys |
 | `Sources/ordino-probe` | Prototype CLI that runs the whole pipeline |
 | `Tests/` | Swift Testing suites for Geometry and LayoutEngine |
 

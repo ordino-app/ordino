@@ -1,4 +1,4 @@
-.PHONY: help bootstrap build test lint format probe arrange release-dry runner runner-remove github-setup
+.PHONY: help bootstrap build test lint format probe arrange app run-app release-dry runner runner-remove github-setup
 
 TAG ?= v0.0.0-dev
 
@@ -27,6 +27,13 @@ probe:           ## Dry run: show what would be arranged
 
 arrange:         ## Arrange the display under the mouse
 	swift run ordino-probe --apply
+
+app:             ## Build build/ordino.app (debug)
+	scripts/bundle-app.sh
+
+run-app:         ## Build and launch ordino.app
+	scripts/bundle-app.sh
+	open build/ordino.app
 
 release-dry:     ## Build release artifacts locally without publishing (TAG=v0.0.0-dev)
 	DRY_RUN=1 scripts/release.sh $(TAG)
