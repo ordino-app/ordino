@@ -4,11 +4,10 @@
 #   scripts/bundle-app.sh                 # debug, native arch -> build/ordino.app
 #   CONFIG=release UNIVERSAL=1 scripts/bundle-app.sh
 #
-# Signing: uses "Developer ID Application", else "Apple Development", else ad hoc.
-# macOS ties the Accessibility permission to the signature. With ad-hoc signing
-# every rebuild looks like a new app and the permission has to be granted again.
-# A free "Apple Development" certificate (Xcode > Settings > Accounts > Manage
-# Certificates > +) gives a stable identity for local development.
+# Signing: "Developer ID Application" if present, else the free "ordino
+# Self-Signed" identity from scripts/setup-signing.sh, else ad hoc. macOS ties
+# the Accessibility permission to the signing identity, so releases must always
+# use the same one.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -89,16 +88,29 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 plutil -lint "$APP/Contents/Info.plist" >/dev/null
 
-IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
-  | awk -F'"' '/Developer ID Application/ {print $2; exit}')"
-if [ -z "$IDENTITY" ]; then
-  IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Apple Development/ {print $2; exit}')"
-fi
+# Signing identity, in order of preference. Every release must use the same
+# one: macOS ties the Accessibility permission to it.
+#   1. Developer ID Application (paid; also lets the app be notarized)
+#   2. "ordino Self-Signed" from scripts/setup-signing.sh (free, stable)
+#   3. ad hoc (changes every build; dev only)
+SIGNING_DIR="${ORDINO_SIGNING_DIR:-$HOME/.config/ordino}"
+SIGNING_KEYCHAIN="$SIGNING_DIR/signing.keychain-db"
+IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Developer ID Application/ {print $2; exit}')"
 if [ -n "$IDENTITY" ]; then
   echo "==> Signing with $IDENTITY (hardened runtime)"
   SIGN=(--force --options runtime --timestamp --sign "$IDENTITY")
+elif [ -f "$SIGNING_KEYCHAIN" ] && [ -f "$SIGNING_DIR/signing.keychain-password" ]; then
+  security unlock-keychain -p "$(cat "$SIGNING_DIR/signing.keychain-password")" "$SIGNING_KEYCHAIN"
+  # Self-signed certificates aren't "valid" to the trust system, so look the
+  # identity up by name without -v and sign by its SHA-1.
+  IDENTITY="$(security find-identity -p codesigning "$SIGNING_KEYCHAIN" | awk '/"ordino Self-Signed"/ {print $2; exit}')"
+  [ -n "$IDENTITY" ] || { echo "No 'ordino Self-Signed' identity in $SIGNING_KEYCHAIN (run scripts/setup-signing.sh)" >&2; exit 1; }
+  echo "==> Signing with ordino Self-Signed (stable identity)"
+  # No hardened runtime: it only matters for notarization, and its library
+  # validation needs a Team ID, which a self-signed certificate doesn't have.
+  SIGN=(--force --sign "$IDENTITY" --keychain "$SIGNING_KEYCHAIN")
 else
-  echo "==> Signing ad hoc (Accessibility must be re-granted after each rebuild)"
+  echo "==> Signing ad hoc: Accessibility must be re-granted after each rebuild (run scripts/setup-signing.sh)"
   SIGN=(--force --sign -)
 fi
 # Inside-out, as Sparkle documents for non-sandboxed apps. Never --deep.

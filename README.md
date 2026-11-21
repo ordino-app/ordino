@@ -23,7 +23,9 @@ In the menu: hover or use ←/→ to preview a layout, Return or 1-9 to apply, �
 
 **Updates.** ordino checks for updates once a day through Sparkle; "Check for updates…" is in the menu, and "Beta" opts into prereleases.
 
-Development builds are signed ad hoc, so macOS asks for Accessibility again after every rebuild. A free "Apple Development" certificate (Xcode > Settings > Accounts > Manage Certificates) makes the permission stick; `scripts/bundle-app.sh` picks it up automatically.
+Run `make signing` once: it creates a free self-signed certificate ("ordino Self-Signed") so the Accessibility permission survives rebuilds and updates. Without it, builds are signed ad hoc and macOS asks again every time.
+
+Installing a release (first launch of an unnotarized app): [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Why
 

@@ -5,7 +5,8 @@
 #   lets Sparkle download and install 0.1.1 on quit, then checks the version.
 #
 # Uses a separate bundle ID, so the real app's settings are not touched.
-#   scripts/test-update.sh
+#   scripts/test-update.sh                 # both versions signed like a release
+#   OLD_ADHOC=1 scripts/test-update.sh     # installed version ad hoc (like 0.1.0-beta.2)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -30,9 +31,14 @@ trap cleanup EXIT
 echo "==> Building 0.1.0 (installed) and 0.1.1 (update)"
 for v in 0.1.0 0.1.1; do
   dest="$WORK/installed"; [ "$v" = 0.1.1 ] && dest="$WORK/new"
-  VERSION="$v" BUNDLE_ID="$TEST_ID" FEED_URL="http://127.0.0.1:$PORT/appcast.xml" \
+  signing_dir="${ORDINO_SIGNING_DIR:-$HOME/.config/ordino}"
+  [ "$v" = 0.1.0 ] && [ "${OLD_ADHOC:-0}" = 1 ] && signing_dir="$WORK/no-signing"
+  ORDINO_SIGNING_DIR="$signing_dir" VERSION="$v" BUNDLE_ID="$TEST_ID" FEED_URL="http://127.0.0.1:$PORT/appcast.xml" \
     APP="$dest/ordino.app" scripts/bundle-app.sh >/dev/null 2>&1
 done
+
+REQ_BEFORE="$(codesign -d -r- "$WORK/installed/ordino.app" 2>&1 | sed -n 's/^designated => //p')"
+REQ_NEW="$(codesign -d -r- "$WORK/new/ordino.app" 2>&1 | sed -n 's/^designated => //p')"
 
 echo "==> Signing the update and writing the appcast"
 ditto -c -k --sequesterRsrc --keepParent "$WORK/new/ordino.app" "$FEED/ordino-0.1.1.zip"
@@ -70,6 +76,18 @@ done
 if [ "$INSTALLED" = "0.1.1" ]; then
   codesign --verify --deep --strict "$WORK/installed/ordino.app"
   echo "PASS: 0.1.0 updated itself to 0.1.1 (signature valid)"
+  REQ_AFTER="$(codesign -d -r- "$WORK/installed/ordino.app" 2>&1 | sed -n 's/^designated => //p')"
+  if [ "$REQ_AFTER" != "$REQ_NEW" ]; then
+    echo "FAIL: the installed app's signing requirement isn't the update's"
+    exit 1
+  fi
+  if [ "${OLD_ADHOC:-0}" = 1 ]; then
+    echo "PASS: ad hoc -> stable identity update accepted (grant Accessibility once more after it)"
+  elif [ "$REQ_AFTER" = "$REQ_BEFORE" ] && [[ "$REQ_AFTER" != cdhash* ]]; then
+    echo "PASS: signing requirement unchanged by the update, so Accessibility stays granted"
+  else
+    echo "NOTE: requirement changed (ad hoc build?): Accessibility would have to be granted again"
+  fi
 else
   echo "FAIL: installed version is still '${INSTALLED:-unknown}'"
   log show --last 3m --style compact --predicate 'process CONTAINS "ordino" OR process CONTAINS "Autoupdate" OR process == "Updater"' 2>/dev/null | grep -iE "sparkle|update|error" | tail -20

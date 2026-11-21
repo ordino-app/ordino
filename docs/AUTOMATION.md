@@ -76,6 +76,19 @@ Signing is picked up automatically once these exist on the release Mac:
 
 Without them, releases are published unsigned, which is fine for the prototype stage.
 
+## Signing (free)
+
+ordino stays free, so there is no Apple Developer ID and no notarization. Releases are signed with **"ordino Self-Signed"**, a certificate created once by `make signing` and kept in its own keychain (`~/.config/ordino/signing.keychain-db`, password next to it, mode 0600). The CI runner uses it without prompts.
+
+Why it matters: macOS ties the Accessibility permission to the app's *designated requirement*. With a stable certificate that requirement is the same for every build, so the permission survives updates. `make test-update` checks exactly that.
+
+Trade-offs of staying free:
+- Users confirm the first launch once (System Settings > Privacy & Security > Open Anyway), see [INSTALL.md](INSTALL.md). Updates through Sparkle don't ask again.
+- No hardened runtime (it needs a Team ID for library validation). It only matters for notarization.
+- If a Developer ID certificate is ever added to the keychain, `bundle-app.sh` prefers it and `release.sh` notarizes. That changes the signing identity, so users grant Accessibility once more.
+
+**Back up `~/.config/ordino/`** (signing keychain + password, Sparkle key, deploy key) in your password manager. Losing the signing certificate means one more Accessibility prompt for every user; losing the Sparkle key means users must reinstall manually.
+
 ## Auto-update (Sparkle)
 
 ordino updates itself with [Sparkle 2](https://sparkle-project.org) (pinned to 2.10.1):

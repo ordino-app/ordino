@@ -1,9 +1,12 @@
-.PHONY: help bootstrap build test lint format probe arrange app run-app test-update release-dry runner runner-remove github-setup
+.PHONY: help signing bootstrap build test lint format probe arrange app run-app test-update release-dry runner runner-remove github-setup
 
 RELEASE_TAG ?= v0.0.0-beta.1
 
 help:            ## List targets
 	@grep -E '^[a-z-]+:.*##' Makefile | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
+
+signing:         ## Create the free self-signed signing identity (once per Mac)
+	scripts/setup-signing.sh
 
 bootstrap:       ## Install git hooks
 	git config core.hooksPath .githooks
