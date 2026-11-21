@@ -19,6 +19,10 @@ make run-app     # builds build/ordino.app and launches it
 
 In the menu: hover or use ←/→ to preview a layout, Return or 1-9 to apply, ⌘Z to undo, Esc to close.
 
+**Primary window.** With Master + Stack (the default for 3 windows) the primary window gets the large slot. By default that's the window you were working in. In the menu you can pick another one (or click its slot in the preview), and tick "Always make <app> primary" to make an app win whenever it's on screen.
+
+**Updates.** ordino checks for updates once a day through Sparkle; "Check for updates…" is in the menu, and "Beta" opts into prereleases.
+
 Development builds are signed ad hoc, so macOS asks for Accessibility again after every rebuild. A free "Apple Development" certificate (Xcode > Settings > Accounts > Manage Certificates) makes the permission stick; `scripts/bundle-app.sh` picks it up automatically.
 
 ## Why

@@ -17,19 +17,49 @@ CONFIG="${CONFIG:-debug}"
 BUNDLE_ID="${BUNDLE_ID:-io.github.xsugra.ordino}"
 VERSION="${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || true)}"
 VERSION="${VERSION:-0.1.0}"
-BUILD_NUMBER="${BUILD_NUMBER:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
-APP="$ROOT/build/ordino.app"
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] || VERSION="0.1.0"   # e.g. a non-release tag in git describe
+# Sparkle compares CFBundleVersion, so it must grow with every release:
+#   MAJOR*1000000 + MINOR*10000 + PATCH*100 + suffix
+#   suffix: alpha.N = N (1-32), beta.N = 32+N (33-64), rc.N = 64+N (65-96), final = 99
+# so alpha < beta < rc < final within a version. 1.2.3-beta.4 -> 1020336, 1.2.3 -> 1020399.
+build_number() {
+  local v="$1" core suffix=99 label n major minor patch
+  core="${v%%-*}"
+  if [[ "$v" == *-* ]]; then
+    if [[ ! "${v#*-}" =~ ^(alpha|beta|rc)\.([0-9]+)$ ]]; then
+      echo "Unsupported prerelease '${v#*-}' (use alpha.N, beta.N or rc.N)" >&2
+      return 1
+    fi
+    label="${BASH_REMATCH[1]}"
+    n=$((10#${BASH_REMATCH[2]}))
+    if ((n < 1 || n > 32)); then
+      echo "Prerelease number must be 1-32, got $n" >&2
+      return 1
+    fi
+    case "$label" in alpha) suffix=$n ;; beta) suffix=$((32 + n)) ;; rc) suffix=$((64 + n)) ;; esac
+  fi
+  IFS=. read -r major minor patch <<<"$core"
+  echo $((${major:-0} * 1000000 + ${minor:-0} * 10000 + ${patch:-0} * 100 + suffix))
+}
+BUILD_NUMBER="${BUILD_NUMBER:-$(build_number "$VERSION")}"
+# Where the app looks for updates. Must be a public HTTPS URL (see docs/AUTOMATION.md).
+FEED_URL="${FEED_URL:-https://xsugra.github.io/ordino-updates/appcast.xml}"
+PUBLIC_ED_KEY="${PUBLIC_ED_KEY:-$(cat "$ROOT/Config/SparklePublicKey.txt")}"
+APP="${APP:-$ROOT/build/ordino.app}"
 
 ARCH_FLAGS=()
 if [ "${UNIVERSAL:-0}" = "1" ]; then ARCH_FLAGS=(--arch arm64 --arch x86_64); fi
 
 echo "==> swift build ($CONFIG${UNIVERSAL:+, universal})"
 swift build -c "$CONFIG" --product ordino ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}
-BIN="$(swift build -c "$CONFIG" --show-bin-path ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"})/ordino"
+BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"})"
+BIN="$BIN_DIR/ordino"
 
 echo "==> Assembling $APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 cp "$BIN" "$APP/Contents/MacOS/ordino"
+FW="$APP/Contents/Frameworks/Sparkle.framework"
+ditto "$BIN_DIR/Sparkle.framework" "$FW"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -49,6 +79,11 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>NSPrincipalClass</key><string>NSApplication</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSHumanReadableCopyright</key><string>MIT License. The ordino authors.</string>
+  <key>SUFeedURL</key><string>$FEED_URL</string>
+  <key>SUPublicEDKey</key><string>$PUBLIC_ED_KEY</string>
+  <key>SUEnableAutomaticChecks</key><true/>
+  <key>SUScheduledCheckInterval</key><integer>86400</integer>
+  <key>SUEnableSystemProfiling</key><false/>
 </dict>
 </plist>
 PLIST
@@ -61,10 +96,17 @@ if [ -z "$IDENTITY" ]; then
 fi
 if [ -n "$IDENTITY" ]; then
   echo "==> Signing with $IDENTITY (hardened runtime)"
-  codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP"
+  SIGN=(--force --options runtime --timestamp --sign "$IDENTITY")
 else
   echo "==> Signing ad hoc (Accessibility must be re-granted after each rebuild)"
-  codesign --force --sign - "$APP"
+  SIGN=(--force --sign -)
 fi
-codesign --verify --strict "$APP"
+# Inside-out, as Sparkle documents for non-sandboxed apps. Never --deep.
+codesign "${SIGN[@]}" "$FW/Versions/B/XPCServices/Installer.xpc"
+codesign "${SIGN[@]}" --preserve-metadata=entitlements "$FW/Versions/B/XPCServices/Downloader.xpc"
+codesign "${SIGN[@]}" "$FW/Versions/B/Autoupdate"
+codesign "${SIGN[@]}" "$FW/Versions/B/Updater.app"
+codesign "${SIGN[@]}" "$FW"
+codesign "${SIGN[@]}" "$APP"
+codesign --verify --deep --strict "$APP"
 echo "==> Built $APP ($VERSION, build $BUILD_NUMBER)"

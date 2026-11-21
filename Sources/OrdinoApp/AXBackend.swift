@@ -32,6 +32,9 @@ final class AXBackend: WindowBackend {
         return WindowSnapshot(
             windows: result.windows.map(\.info),
             appNames: Dictionary(result.windows.map { ($0.info.id, $0.appName) }, uniquingKeysWith: { a, _ in a }),
+            bundleIDs: Dictionary(
+                result.windows.compactMap { w in w.bundleID.map { (w.info.id, $0) } }, uniquingKeysWith: { a, _ in a }),
+            titles: Dictionary(result.windows.map { ($0.info.id, $0.title) }, uniquingKeysWith: { a, _ in a }),
             skippedCount: result.skipped.count)
     }
 

@@ -1,6 +1,6 @@
-.PHONY: help bootstrap build test lint format probe arrange app run-app release-dry runner runner-remove github-setup
+.PHONY: help bootstrap build test lint format probe arrange app run-app test-update release-dry runner runner-remove github-setup
 
-TAG ?= v0.0.0-dev
+RELEASE_TAG ?= v0.0.0-beta.1
 
 help:            ## List targets
 	@grep -E '^[a-z-]+:.*##' Makefile | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -35,8 +35,11 @@ run-app:         ## Build and launch ordino.app
 	scripts/bundle-app.sh
 	open build/ordino.app
 
-release-dry:     ## Build release artifacts locally without publishing (TAG=v0.0.0-dev)
-	DRY_RUN=1 scripts/release.sh $(TAG)
+test-update:     ## End-to-end Sparkle update test on localhost (0.1.0 -> 0.1.1)
+	scripts/test-update.sh
+
+release-dry:     ## Build release artifacts locally without publishing (RELEASE_TAG=v0.0.0-beta.1)
+	DRY_RUN=1 scripts/release.sh $(RELEASE_TAG)
 
 runner:          ## Register this Mac as the self-hosted GitHub Actions runner
 	scripts/setup-runner.sh

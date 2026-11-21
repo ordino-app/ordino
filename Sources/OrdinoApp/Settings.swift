@@ -20,6 +20,18 @@ final class Settings {
         set { defaults.set(newValue.mapValues(\.rawValue), forKey: "preferredLayouts") }
     }
 
+    /// Receive beta (prerelease) updates through Sparkle's "beta" channel.
+    var betaUpdates: Bool {
+        get { defaults.bool(forKey: "betaUpdates") }
+        set { defaults.set(newValue, forKey: "betaUpdates") }
+    }
+
+    /// Apps whose window is always the primary one when present, in priority order.
+    var primaryApps: [String] {
+        get { defaults.stringArray(forKey: "primaryApps") ?? [] }
+        set { defaults.set(newValue, forKey: "primaryApps") }
+    }
+
     var excludedBundleIDs: Set<String> {
         get { Set(defaults.stringArray(forKey: "excludedBundleIDs") ?? []) }
         set { defaults.set(Array(newValue).sorted(), forKey: "excludedBundleIDs") }

@@ -40,4 +40,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag || github.ref_name }}
+          # Public repo that hosts the Sparkle appcast and update archives.
+          UPDATES_REPO: ${{ vars.UPDATES_REPO }}
+          # Fine-grained token with contents:write on UPDATES_REPO (optional on
+          # the self-hosted Mac, where gh's own login is used otherwise).
+          UPDATES_TOKEN: ${{ secrets.UPDATES_TOKEN }}
         run: scripts/release.sh "$TAG"

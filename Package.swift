@@ -12,6 +12,10 @@ let package = Package(
         .executable(name: "ordino", targets: ["OrdinoApp"]),
         .executable(name: "ordino-probe", targets: ["ordino-probe"]),
     ],
+    dependencies: [
+        // Auto-update. Pinned exactly; bump deliberately (Dependabot opens PRs).
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1")
+    ],
     targets: [
         // Pure value types. Foundation only.
         .target(name: "Geometry"),
@@ -41,8 +45,13 @@ let package = Package(
         // The menu bar app.
         .executableTarget(
             name: "OrdinoApp",
-            dependencies: ["Geometry", "LayoutEngine", "WindowKit", "ArrangeCore"],
+            dependencies: [
+                "Geometry", "LayoutEngine", "WindowKit", "ArrangeCore",
+                .product(name: "Sparkle", package: "Sparkle"),
+            ],
             linkerSettings: [
+                // Sparkle.framework is embedded in ordino.app/Contents/Frameworks.
+                .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"]),
                 .linkedFramework("AppKit"),
                 .linkedFramework("SwiftUI"),
                 .linkedFramework("Carbon"),

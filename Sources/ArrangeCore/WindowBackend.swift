@@ -22,12 +22,21 @@ public struct WindowSnapshot: Sendable {
     public var windows: [WindowInfo]
     /// Human-readable app name per window, for previews and messages.
     public var appNames: [WindowID: String]
+    /// Bundle identifier per window, for "always primary" app rules.
+    public var bundleIDs: [WindowID: String]
+    /// Window titles (read locally through Accessibility), for the primary-window picker.
+    public var titles: [WindowID: String]
     /// Windows that were seen but not eligible (minimized, panels, full screen...).
     public var skippedCount: Int
 
-    public init(windows: [WindowInfo], appNames: [WindowID: String] = [:], skippedCount: Int = 0) {
+    public init(
+        windows: [WindowInfo], appNames: [WindowID: String] = [:], bundleIDs: [WindowID: String] = [:],
+        titles: [WindowID: String] = [:], skippedCount: Int = 0
+    ) {
         self.windows = windows
         self.appNames = appNames
+        self.bundleIDs = bundleIDs
+        self.titles = titles
         self.skippedCount = skippedCount
     }
 }

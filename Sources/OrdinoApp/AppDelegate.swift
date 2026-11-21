@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menu: MenuController?
     private let hud = HUD()
     private var onboarding: OnboardingController?
+    private(set) lazy var updater = Updater(settings: settings)
 
     /// Shortcuts that another app already owns. Shown in the menu; never advertised in hints.
     private(set) var unavailableShortcuts: [String] = []
@@ -22,7 +23,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         FrontmostAppTracker.shared.start()
         backend.excludedBundleIDs = settings.excludedBundleIDs
+        coordinator.preferredPrimaryApps = settings.primaryApps
         menu = MenuController(app: self)
+        updater.onChange = { [weak self] in self?.menu?.refresh() }
         registerHotKeys()
         if !AccessibilityPermission.isTrusted { showOnboarding() }
     }
@@ -38,14 +41,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// - Parameters:
     ///   - focusedID: the window that becomes master, captured before any ordino UI showed.
+    ///   - primaryID: a window the user picked as primary in the menu.
     ///   - display: the display to arrange; `nil` = the one under the mouse.
-    func run(_ action: ArrangeCoordinator.Action, focusedID: WindowID?, display: DisplaySnapshot? = nil) {
+    func run(
+        _ action: ArrangeCoordinator.Action, focusedID: WindowID?, primaryID: WindowID? = nil,
+        display: DisplaySnapshot? = nil
+    ) {
         guard AccessibilityPermission.isTrusted else {
             showOnboarding()
             return
         }
         Task {
-            let outcome = await coordinator.perform(action, focusedID: focusedID, display: display)
+            let outcome = await coordinator.perform(
+                action, focusedID: focusedID, primaryID: primaryID, display: display)
             settings.preferredLayouts = coordinator.preferredLayouts
             if let text = message(for: outcome) { hud.show(text) }
             menu?.refresh()
@@ -62,6 +70,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settings.preferredLayouts = coordinator.preferredLayouts
             menu?.refresh()
         }
+    }
+
+    /// Adds or removes an app from the "always primary" list (added apps go first).
+    func setAlwaysPrimary(_ bundleID: String, _ on: Bool) {
+        var apps = settings.primaryApps.filter { $0 != bundleID }
+        if on { apps.insert(bundleID, at: 0) }
+        settings.primaryApps = apps
+        coordinator.preferredPrimaryApps = apps
     }
 
     func setGap(_ gap: Double) {

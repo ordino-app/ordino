@@ -13,6 +13,7 @@ final class FakeBackend: WindowBackend {
     var frames: [WindowID: Rect]
     var order: [WindowID]
     var minSizes: [WindowID: Size] = [:]
+    var bundleIDs: [WindowID: String] = [:]
     var applyDelay: Duration = .zero
     /// Windows that accept moves but apply resizes "later" (report the old size).
     var lagging: Set<WindowID> = []
@@ -35,7 +36,8 @@ final class FakeBackend: WindowBackend {
             windows: order.compactMap { id in
                 frames[id].map { WindowInfo(id: id, frame: $0, isFocused: id == focusedID) }
             },
-            appNames: Dictionary(uniqueKeysWithValues: order.map { ($0, "App \($0)") }))
+            appNames: Dictionary(uniqueKeysWithValues: order.map { ($0, "App \($0)") }),
+            bundleIDs: bundleIDs)
     }
 
     func apply(_ targets: [WindowID: Rect]) async -> [WindowID: Rect?] {
@@ -319,5 +321,70 @@ struct ArrangeCoordinatorRegressionTests {
         try await Task.sleep(for: .milliseconds(20))
         #expect(await coordinator.undo() == .busy)
         _ = await running
+    }
+}
+
+@MainActor
+@Suite("Primary window")
+struct PrimaryWindowTests {
+    func make() -> (FakeBackend, ArrangeCoordinator) {
+        let backend = FakeBackend(count: 3)
+        backend.bundleIDs = [1: "com.apple.Safari", 2: "com.apple.dt.Xcode", 3: "com.tinyspeck.slackmacgap"]
+        return (backend, ArrangeCoordinator(backend: backend))
+    }
+
+    func master(_ backend: FakeBackend) -> WindowID {
+        backend.frames.max { $0.value.area < $1.value.area }!.key
+    }
+
+    @Test func focusedWindowIsPrimaryByDefault() async {
+        let (backend, coordinator) = make()
+        _ = await coordinator.perform(.layout(.masterStack), focusedID: 1)
+        #expect(master(backend) == 1)
+    }
+
+    @Test func explicitPickBecomesPrimary() async {
+        let (backend, coordinator) = make()
+        _ = await coordinator.perform(.layout(.masterStack), focusedID: 1, primaryID: 3)
+        #expect(master(backend) == 3)
+    }
+
+    @Test func preferredAppBeatsFocusedWindow() async {
+        let (backend, coordinator) = make()
+        coordinator.preferredPrimaryApps = ["com.apple.dt.Xcode"]
+        _ = await coordinator.perform(.layout(.masterStack), focusedID: 1)
+        #expect(master(backend) == 2)
+    }
+
+    @Test func explicitPickBeatsPreferredApp() async {
+        let (backend, coordinator) = make()
+        coordinator.preferredPrimaryApps = ["com.apple.dt.Xcode"]
+        _ = await coordinator.perform(.layout(.masterStack), focusedID: 1, primaryID: 3)
+        #expect(master(backend) == 3)
+    }
+
+    @Test func preferredAppsAreTriedInOrder() async {
+        let (backend, coordinator) = make()
+        coordinator.preferredPrimaryApps = [
+            "com.example.NotRunning", "com.tinyspeck.slackmacgap", "com.apple.dt.Xcode",
+        ]
+        _ = await coordinator.perform(.layout(.masterStack), focusedID: 1)
+        #expect(master(backend) == 3)
+    }
+
+    @Test func missingPickFallsBackToFocused() async {
+        let (backend, coordinator) = make()
+        _ = await coordinator.perform(.layout(.masterStack), focusedID: 2, primaryID: 99)
+        #expect(master(backend) == 2)
+    }
+
+    @Test func previewReportsPrimaryAndMatchesPerform() async throws {
+        let (backend, coordinator) = make()
+        coordinator.preferredPrimaryApps = ["com.apple.dt.Xcode"]
+        let preview = try #require(coordinator.preview(focusedID: 1, action: .layout(.masterStack)))
+        #expect(preview.primaryID == 2)
+        #expect(preview.windowIDs.count == 3)
+        _ = await coordinator.perform(.layout(.masterStack), focusedID: 1)
+        #expect(backend.frames == preview.plan.frames)
     }
 }

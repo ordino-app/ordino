@@ -7,10 +7,14 @@ struct MenuView: View {
     @Bindable var model: MenuModel
     let onArrange: (LayoutID?) -> Void
     let onSelect: (LayoutID?) -> Void
+    let onPrimary: (WindowID?) -> Void
+    let onAlwaysPrimary: (String, Bool) -> Void
     let onUndo: () -> Void
     let onGap: (Double) -> Void
     let onLaunchAtLogin: (Bool) -> Void
     let onGrantAccess: () -> Void
+    let onCheckForUpdates: () -> Void
+    let onBetaUpdates: (Bool) -> Void
     let onQuit: () -> Void
 
     var body: some View {
@@ -19,10 +23,13 @@ struct MenuView: View {
                 permissionCard
             } else if let preview = model.shownPreview {
                 header(preview)
-                LayoutThumbnail(preview: preview)
-                    .frame(height: 150)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(Self.describe(preview))
+                LayoutThumbnail(
+                    preview: preview,
+                    onPick: preview.plan.layout == .masterStack ? { onPrimary($0) } : nil
+                )
+                .frame(height: 150)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Self.describe(preview))
                 Button {
                     onArrange(nil)
                 } label: {
@@ -37,6 +44,11 @@ struct MenuView: View {
                 .keyboardShortcut(.defaultAction)
                 .modifier(ProminentButton())
                 alternatives(model.preview ?? preview)
+                // Shown whenever Master + Stack is on offer, not only while it's
+                // hovered, so the picker never disappears under the pointer.
+                if let base = model.preview, base.plan.candidates.contains(.masterStack), base.windowIDs.count > 1 {
+                    primaryPicker(preview.plan.layout == .masterStack ? preview : base)
+                }
             } else {
                 emptyState
             }
@@ -70,6 +82,26 @@ struct MenuView: View {
             Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: { onLaunchAtLogin($0) }))
                 .toggleStyle(.switch)
                 .controlSize(.small)
+
+            if model.updatesAvailable {
+                HStack(spacing: 8) {
+                    if model.updateAvailable {
+                        Button("Update available…", systemImage: "arrow.down.circle.fill", action: onCheckForUpdates)
+                            .foregroundStyle(.tint)
+                    } else {
+                        Button("Check for updates…", action: onCheckForUpdates)
+                            .disabled(!model.canCheckForUpdates)
+                    }
+                    Spacer()
+                    Toggle("Beta", isOn: Binding(get: { model.betaUpdates }, set: { onBetaUpdates($0) }))
+                        .toggleStyle(.checkbox)
+                        .controlSize(.small)
+                        .help("Also receive beta versions")
+                        .accessibilityLabel("Receive beta updates")
+                }
+                .buttonStyle(.borderless)
+            }
+            Text(model.version).font(.caption2).foregroundStyle(.tertiary)
 
             HStack {
                 Button("Undo", systemImage: "arrow.uturn.backward", action: onUndo)
@@ -121,6 +153,50 @@ struct MenuView: View {
         }
     }
 
+    /// "Which window gets the big slot": automatic (focused / always-primary app)
+    /// or a specific window. Clicking a slot in the thumbnail does the same.
+    private func primaryPicker(_ p: ArrangeCoordinator.Preview) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Picker(
+                "Primary window (Master + Stack)",
+                selection: Binding(get: { model.primaryOverride }, set: { onPrimary($0) })
+            ) {
+                Text(automaticLabel(p)).tag(WindowID?.none)
+                Divider()
+                ForEach(p.windowIDs, id: \.self) { id in
+                    Text(Self.windowLabel(id, p)).tag(WindowID?.some(id))
+                }
+            }
+            .pickerStyle(.menu)
+            .help("The window that gets the large slot. You can also click a window in the preview.")
+
+            if let id = p.primaryID, let bundleID = p.bundleIDs[id] {
+                let app = p.appNames[id] ?? "this app"
+                Toggle(
+                    "Always make \(app) primary",
+                    isOn: Binding(
+                        get: { model.alwaysPrimaryApps.contains(bundleID) },
+                        set: { onAlwaysPrimary(bundleID, $0) })
+                )
+                .toggleStyle(.checkbox)
+                .controlSize(.small)
+            }
+        }
+        .font(.callout)
+    }
+
+    private func automaticLabel(_ p: ArrangeCoordinator.Preview) -> String {
+        guard model.primaryOverride == nil, let id = p.primaryID else { return "Automatic" }
+        return "Automatic (\(p.appNames[id] ?? "focused window"))"
+    }
+
+    static func windowLabel(_ id: WindowID, _ p: ArrangeCoordinator.Preview) -> String {
+        let app = p.appNames[id] ?? "Window"
+        let title = (p.titles[id] ?? "").trimmingCharacters(in: .whitespaces)
+        guard !title.isEmpty, title != app else { return app }
+        return "\(app) – \(title.count > 40 ? String(title.prefix(40)) + "…" : title)"
+    }
+
     private var permissionCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("ordino needs Accessibility access", systemImage: "hand.raised")
@@ -156,13 +232,19 @@ struct MenuView: View {
     static func describe(_ p: ArrangeCoordinator.Preview) -> String {
         let names = p.plan.frames.sorted { ($0.value.y, $0.value.x) < ($1.value.y, $1.value.x) }
             .map { p.appNames[$0.key] ?? "Window" }
-        return "\(p.plan.layout.description) layout. " + names.joined(separator: ", ")
+        var text = "\(p.plan.layout.description) layout. "
+        if p.plan.layout == .masterStack, let id = p.primaryID {
+            text += "Primary: \(p.appNames[id] ?? "window"). "
+        }
+        return text + names.joined(separator: ", ")
     }
 }
 
 /// Scaled drawing of the planned slots with app names.
 struct LayoutThumbnail: View {
     let preview: ArrangeCoordinator.Preview
+    /// Called with the window whose slot was clicked (makes it primary).
+    var onPick: ((WindowID) -> Void)?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -181,8 +263,9 @@ struct LayoutThumbnail: View {
                     let rect = CGRect(
                         x: origin.x + (f.x - area.x) * scale, y: origin.y + (f.y - area.y) * scale,
                         width: f.w * scale, height: f.h * scale)
+                    let isPrimary = id == preview.primaryID && preview.plan.layout == .masterStack
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.accentColor.opacity(0.18))
+                        .fill(Color.accentColor.opacity(isPrimary ? 0.32 : 0.18))
                         .overlay(
                             RoundedRectangle(cornerRadius: 4).strokeBorder(Color.accentColor.opacity(0.7), lineWidth: 1)
                         )
@@ -194,6 +277,9 @@ struct LayoutThumbnail: View {
                                 .padding(3)
                         )
                         .frame(width: max(1, rect.width), height: max(1, rect.height))
+                        .contentShape(Rectangle())
+                        .onTapGesture { onPick?(id) }
+                        .help(onPick == nil ? "" : "Make \(preview.appNames[id] ?? "this window") the primary window")
                         .offset(x: rect.minX, y: rect.minY)
                         .animation(reduceMotion ? nil : .smooth(duration: 0.18), value: rect)
                 }

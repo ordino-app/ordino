@@ -52,6 +52,12 @@ public final class ArrangeCoordinator {
         public let display: DisplaySnapshot
         public let plan: LayoutPlan
         public let appNames: [WindowID: String]
+        public let bundleIDs: [WindowID: String]
+        public let titles: [WindowID: String]
+        /// Placed windows, front to back.
+        public let windowIDs: [WindowID]
+        /// The window that gets the master slot (if the layout has one).
+        public let primaryID: WindowID?
     }
 
     public var preferences: LayoutPreferences
@@ -61,6 +67,9 @@ public final class ArrangeCoordinator {
 
     /// Layout chosen by the user per (display, window count), reused next time.
     public private(set) var preferredLayouts: [String: LayoutID] = [:]
+    /// Bundle IDs whose window becomes the primary (master) window when present,
+    /// in priority order. Beats the focused window; an explicit pick beats this.
+    public var preferredPrimaryApps: [String] = []
     public var canUndo: Bool { !undoStack.isEmpty }
 
     private struct UndoEntry {
@@ -101,17 +110,21 @@ public final class ArrangeCoordinator {
 
     // MARK: - Public API
 
-    /// - Parameter display: the display to arrange; `nil` asks the backend (display under the mouse).
-    public func perform(_ action: Action, focusedID: WindowID?, display requested: DisplaySnapshot? = nil) async
-        -> Outcome
-    {
+    /// - Parameters:
+    ///   - focusedID: the window the user is working in.
+    ///   - primaryID: a window the user explicitly picked as primary (menu).
+    ///   - display: the display to arrange; `nil` asks the backend (display under the mouse).
+    public func perform(
+        _ action: Action, focusedID: WindowID?, primaryID: WindowID? = nil, display requested: DisplaySnapshot? = nil
+    ) async -> Outcome {
         guard !isBusy else { return .busy }
         isBusy = true
         defer { isBusy = false }
 
         guard let display = requested ?? backend.targetDisplay() else { return .noDisplay }
         let snapshot = backend.snapshot(of: display, focusedID: focusedID)
-        let windows = withLearnedSizes(snapshot.windows)
+        let primary = resolvePrimary(snapshot, focusedID: focusedID, explicit: primaryID)
+        let windows = withLearnedSizes(markPrimary(snapshot.windows, primary))
         guard !windows.isEmpty else { return .nothingToArrange(displayName: display.name) }
 
         let r = resolve(action, display: display, windows: windows)
@@ -180,18 +193,44 @@ public final class ArrangeCoordinator {
         return .restored(result.values.filter { $0 != nil }.count)
     }
 
-    /// Dry run: exactly what ``perform(_:focusedID:display:)`` would do for `action`.
-    public func preview(focusedID: WindowID?, display requested: DisplaySnapshot? = nil, action: Action = .arrange)
-        -> Preview?
-    {
+    /// Dry run: exactly what ``perform(_:focusedID:primaryID:display:)`` would do for `action`.
+    public func preview(
+        focusedID: WindowID?, primaryID: WindowID? = nil, display requested: DisplaySnapshot? = nil,
+        action: Action = .arrange
+    ) -> Preview? {
         guard let display = requested ?? backend.targetDisplay() else { return nil }
         let snapshot = backend.snapshot(of: display, focusedID: focusedID)
-        let windows = withLearnedSizes(snapshot.windows)
+        let primary = resolvePrimary(snapshot, focusedID: focusedID, explicit: primaryID)
+        let windows = withLearnedSizes(markPrimary(snapshot.windows, primary))
         guard !windows.isEmpty else { return nil }
         let r = resolve(action, display: display, windows: windows)
         let context = LayoutContext(area: display.visibleFrame, windows: windows, preferences: preferences)
         guard let plan = engine.plan(context, layout: r.layout, rotation: r.rotation) else { return nil }
-        return Preview(display: display, plan: plan, appNames: snapshot.appNames)
+        let placed = windows.map(\.id).filter { plan.frames[$0] != nil }
+        return Preview(
+            display: display, plan: plan, appNames: snapshot.appNames, bundleIDs: snapshot.bundleIDs,
+            titles: snapshot.titles, windowIDs: placed, primaryID: primary.flatMap { placed.contains($0) ? $0 : nil })
+    }
+
+    // MARK: - Primary window
+
+    /// Explicit pick > first window of a preferred app (front-most of that app) > focused window.
+    private func resolvePrimary(_ snapshot: WindowSnapshot, focusedID: WindowID?, explicit: WindowID?) -> WindowID? {
+        let ids = snapshot.windows.prefix(max(1, preferences.maxWindows)).map(\.id)
+        if let explicit, ids.contains(explicit) { return explicit }
+        for bundleID in preferredPrimaryApps {
+            if let id = ids.first(where: { snapshot.bundleIDs[$0] == bundleID }) { return id }
+        }
+        if let focusedID, ids.contains(focusedID) { return focusedID }
+        return nil
+    }
+
+    private func markPrimary(_ windows: [WindowInfo], _ primary: WindowID?) -> [WindowInfo] {
+        windows.map { w in
+            var copy = w
+            copy.isFocused = w.id == primary
+            return copy
+        }
     }
 
     // MARK: - Layout resolution (shared by perform and preview)

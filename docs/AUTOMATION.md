@@ -66,7 +66,7 @@ make runner-remove
 ```bash
 git tag v0.2.0 && git push origin v0.2.0      # stable
 git tag v0.3.0-beta.1 && git push origin v0.3.0-beta.1   # marked as prerelease
-make release-dry TAG=v0.2.0                   # build the artifacts locally, publish nothing
+make release-dry RELEASE_TAG=v0.2.0                  # build the artifacts locally, publish nothing
 ```
 
 Signing is picked up automatically once these exist on the release Mac:
@@ -75,6 +75,35 @@ Signing is picked up automatically once these exist on the release Mac:
 2. A notary profile: `xcrun notarytool store-credentials ordino-notary --key AuthKey_XXXX.p8 --key-id XXXX --issuer <uuid>`
 
 Without them, releases are published unsigned, which is fine for the prototype stage.
+
+## Auto-update (Sparkle)
+
+ordino updates itself with [Sparkle 2](https://sparkle-project.org) (pinned to 2.10.1):
+
+1. `release.yml` (on your Mac) builds a universal `ordino.app`, zips it and signs the zip with the **EdDSA key** (`~/.config/ordino/sparkle_ed25519.key`, also in your login keychain as account `ordino`).
+2. `generate_appcast` adds the new version to `appcast.xml`. Tags like `v0.3.0-beta.1` go to the `beta` channel; only users who tick "Beta" in the menu get them.
+3. The zip is uploaded to a release in the **updates repo** first, then `appcast.xml` is pushed there. GitHub Pages serves it at `https://<owner>.github.io/<repo>/appcast.xml`, the `SUFeedURL` baked into the app.
+4. Installed apps check once a day. A menu bar app never pops an alert over your work: the icon fills in and the menu shows "Update available…".
+
+**Why a separate public updates repo:** Sparkle downloads without logging in, and files in a private repo need a login. The updates repo holds only `appcast.xml` and the zipped app, never source code.
+
+**Build numbers** (`CFBundleVersion`, what Sparkle compares) come from the version: `MAJOR*1000000 + MINOR*10000 + PATCH*100 + suffix`, where alpha.N = N, beta.N = 32+N, rc.N = 64+N and a final release = 99. So `0.2.0-alpha.1` (20001) < `0.2.0-beta.1` (20033) < `0.2.0-rc.1` (20065) < `0.2.0` (20099). Prerelease numbers go up to 32; the release script rejects anything else.
+
+**Back up the private key** (password manager). If it is lost, installed apps can't verify new updates and users would have to download ordino again manually. The public half is in `Config/SparklePublicKey.txt`.
+
+Setup once:
+
+```bash
+gh repo create <owner>/ordino-updates --public --add-readme   # needs a first commit
+gh variable set UPDATES_REPO --body <owner>/ordino-updates
+# then enable Pages: Settings > Pages > Deploy from branch "main", folder "/"
+```
+
+Test the whole update path locally (no network, separate bundle ID):
+
+```bash
+make test-update
+```
 
 ## Daily commands
 
