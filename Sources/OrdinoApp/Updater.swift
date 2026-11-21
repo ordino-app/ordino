@@ -53,8 +53,14 @@ final class Updater: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate
 
     // MARK: SPUUpdaterDelegate
 
+    /// Beta users stay on the beta channel: a prerelease build (e.g. 0.2.0-beta.1)
+    /// always gets newer betas, everyone else only when they tick "Beta".
     nonisolated func allowedChannels(for updater: SPUUpdater) -> Set<String> {
-        MainActor.assumeIsolated { settings.betaUpdates ? ["beta"] : [] }
+        MainActor.assumeIsolated { settings.betaUpdates || Self.isPrerelease ? ["beta"] : [] }
+    }
+
+    static var isPrerelease: Bool {
+        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)?.contains("-") ?? false
     }
 
     // MARK: SPUStandardUserDriverDelegate (gentle reminders)

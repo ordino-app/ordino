@@ -82,8 +82,10 @@ ordino updates itself with [Sparkle 2](https://sparkle-project.org) (pinned to 2
 
 1. `release.yml` (on your Mac) builds a universal `ordino.app`, zips it and signs the zip with the **EdDSA key** (`~/.config/ordino/sparkle_ed25519.key`, also in your login keychain as account `ordino`).
 2. `generate_appcast` adds the new version to `appcast.xml`. Tags like `v0.3.0-beta.1` go to the `beta` channel; only users who tick "Beta" in the menu get them.
-3. The zip is uploaded to a release in the **updates repo** first, then `appcast.xml` is pushed there. GitHub Pages serves it at `https://<owner>.github.io/<repo>/appcast.xml`, the `SUFeedURL` baked into the app.
+3. The zip (in `archives/`) and the new `appcast.xml` are pushed to the **updates repo** in one commit, using an SSH **deploy key** that can write only to that repo (`~/.config/ordino/updates_deploy_key`). GitHub Pages serves both: `https://<owner>.github.io/<repo>/appcast.xml` is the `SUFeedURL` baked into the app.
 4. Installed apps check once a day. A menu bar app never pops an alert over your work: the icon fills in and the menu shows "Update available…".
+
+**Why not the GitHub login on the runner:** the runner is a launchd service and can't read `gh`'s keychain login, so the release pushes with the deploy key instead.
 
 **Why a separate public updates repo:** Sparkle downloads without logging in, and files in a private repo need a login. The updates repo holds only `appcast.xml` and the zipped app, never source code.
 
@@ -97,6 +99,11 @@ Setup once:
 gh repo create <owner>/ordino-updates --public --add-readme   # needs a first commit
 gh variable set UPDATES_REPO --body <owner>/ordino-updates
 # then enable Pages: Settings > Pages > Deploy from branch "main", folder "/"
+
+# deploy key for the release Mac (write access to the updates repo only)
+ssh-keygen -t ed25519 -N "" -f ~/.config/ordino/updates_deploy_key
+gh api repos/<owner>/ordino-updates/keys -f title="ordino release" \
+  -f key="$(cat ~/.config/ordino/updates_deploy_key.pub)" -F read_only=false
 ```
 
 Test the whole update path locally (no network, separate bundle ID):

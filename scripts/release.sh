@@ -8,7 +8,8 @@
 # Environment:
 #   UPDATES_REPO      public repo that hosts the appcast (GitHub Pages) and the
 #                     update archives, e.g. xsugra/ordino-updates. Unset = no feed.
-#   UPDATES_TOKEN     token that may push to UPDATES_REPO (falls back to gh's login)
+#   DEPLOY_KEY        SSH deploy key with write access to UPDATES_REPO
+#                     (default ~/.config/ordino/updates_deploy_key)
 #   SPARKLE_KEY_FILE  EdDSA private key (default ~/.config/ordino/sparkle_ed25519.key)
 #   NOTARY_PROFILE    notarytool keychain profile (default ordino-notary)
 #
@@ -27,6 +28,7 @@ DRY_RUN="${DRY_RUN:-0}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-ordino-notary}"
 KEY="${SPARKLE_KEY_FILE:-$HOME/.config/ordino/sparkle_ed25519.key}"
 UPDATES_REPO="${UPDATES_REPO:-}"
+DEPLOY_KEY="${DEPLOY_KEY:-$HOME/.config/ordino/updates_deploy_key}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SB="$ROOT/.build/artifacts/sparkle/Sparkle/bin"
 DIST="$ROOT/dist/$VERSION"
@@ -69,20 +71,25 @@ ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
 cat "$DIST/SHA256SUMS"
 
 publish_feed() {
-  local work prefix
+  local work prefix git_ssh
   work="$(mktemp -d)"
   log "Updating appcast in $UPDATES_REPO"
-  if [ -n "${UPDATES_TOKEN:-}" ]; then export GH_TOKEN="$UPDATES_TOKEN"; else unset GH_TOKEN; fi
-  gh repo clone "$UPDATES_REPO" "$work/repo" -- --quiet
+  [ -f "$DEPLOY_KEY" ] || { echo "Deploy key not found at $DEPLOY_KEY (docs/AUTOMATION.md)" >&2; exit 1; }
+  # A deploy key scoped to the updates repo: works from the launchd runner,
+  # which can't use gh's keychain login.
+  git_ssh="ssh -i $DEPLOY_KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+  GIT_SSH_COMMAND="$git_ssh" git clone -q --depth 1 "git@github.com:$UPDATES_REPO.git" "$work/repo"
   if ! git -C "$work/repo" rev-parse -q --verify HEAD >/dev/null; then
     echo "$UPDATES_REPO has no commits yet. Create it with --add-readme (docs/AUTOMATION.md)." >&2
     exit 1
   fi
-  prefix="https://github.com/$UPDATES_REPO/releases/download/$TAG/"
-  # generate_appcast keeps existing items and adds the archive in the folder.
-  mkdir -p "$work/archives"
+
+  # Archives live in the repo and are served by GitHub Pages next to the appcast.
+  prefix="${FEED_URL%/appcast.xml}/archives/"
+  mkdir -p "$work/archives" "$work/repo/archives"
   cp "$ZIP" "$work/archives/"
   [ -f "$work/repo/appcast.xml" ] && cp "$work/repo/appcast.xml" "$work/archives/appcast.xml"
+  # generate_appcast keeps existing items and adds the archive in the folder.
   "$SB/generate_appcast" --ed-key-file "$KEY" --download-url-prefix "$prefix" \
     --maximum-deltas 0 ${CHANNEL:+--channel "$CHANNEL"} \
     --link "https://github.com/$UPDATES_REPO" "$work/archives"
@@ -94,25 +101,19 @@ publish_feed() {
     log "Dry run: appcast written to dist/$VERSION/appcast.xml, not published"
     return
   fi
-  # Archive first, appcast second: clients must never see an item they can't download.
-  # Both steps are safe to re-run for the same tag.
-  if gh release view "$TAG" --repo "$UPDATES_REPO" >/dev/null 2>&1; then
-    gh release upload "$TAG" "$ZIP" --repo "$UPDATES_REPO" --clobber
-  else
-    gh release create "$TAG" "$ZIP" --repo "$UPDATES_REPO" --title "ordino $VERSION" \
-      --notes "Update archive for ordino $VERSION." ${CHANNEL:+--prerelease}
-  fi
+  # Archive and appcast land in one commit, so Pages never serves an item
+  # whose archive is missing. Safe to re-run for the same tag.
+  cp "$ZIP" "$work/repo/archives/"
   cp "$work/archives/appcast.xml" "$work/repo/appcast.xml"
-  git -C "$work/repo" add appcast.xml
+  git -C "$work/repo" add appcast.xml "archives/$(basename "$ZIP")"
   if git -C "$work/repo" diff --cached --quiet; then
     log "Appcast already up to date"
     return
   fi
   git -C "$work/repo" -c user.name="ordino release" -c user.email="release@users.noreply.github.com" \
-    commit -q -m "appcast: $TAG"
-  # Use gh's credentials (UPDATES_TOKEN or gh's login), not whatever git's helper has.
-  git -C "$work/repo" -c credential.helper= -c 'credential.helper=!gh auth git-credential' push -q
-  log "Appcast published: $FEED_URL"
+    commit -q -m "release: $TAG"
+  GIT_SSH_COMMAND="$git_ssh" git -C "$work/repo" push -q
+  log "Appcast published: $FEED_URL (GitHub Pages updates within a minute or two)"
 }
 
 if [ -n "$UPDATES_REPO" ]; then
