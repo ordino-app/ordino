@@ -1,0 +1,34 @@
+name: Bug report
+description: Something arranged wrong, crashed, or didn't move
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you expected, and what ordino did instead.
+    validations:
+      required: true
+  - type: input
+    id: apps
+    attributes:
+      label: Apps involved
+      placeholder: e.g. Chrome, Xcode, Slack
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: e.g. 27.2
+    validations:
+      required: true
+  - type: input
+    id: displays
+    attributes:
+      label: Displays
+      placeholder: e.g. MacBook + 27" 2560x1440 + portrait 1440x2560
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Output of `ordino-probe` (dry run) or "Copy diagnostics" from the app. Remove window titles if they are private.
+      render: text

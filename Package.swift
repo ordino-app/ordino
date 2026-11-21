@@ -1,0 +1,46 @@
+// swift-tools-version: 6.0
+import PackageDescription
+
+let package = Package(
+    name: "ordino",
+    platforms: [.macOS(.v14)],
+    products: [
+        .library(name: "Geometry", targets: ["Geometry"]),
+        .library(name: "LayoutEngine", targets: ["LayoutEngine"]),
+        .library(name: "WindowKit", targets: ["WindowKit"]),
+        .executable(name: "ordino-probe", targets: ["ordino-probe"]),
+    ],
+    targets: [
+        // Pure value types. Foundation only.
+        .target(name: "Geometry"),
+
+        // Pure, deterministic layout math. Foundation only; no AppKit, no AX.
+        .target(name: "LayoutEngine", dependencies: ["Geometry"]),
+
+        // C shim exposing the private (but widely used) _AXUIElementGetWindow.
+        .target(
+            name: "AXPrivate",
+            linkerSettings: [.linkedFramework("ApplicationServices")]
+        ),
+
+        // Accessibility + CoreGraphics window discovery and movement.
+        .target(
+            name: "WindowKit",
+            dependencies: ["Geometry", "LayoutEngine", "AXPrivate"],
+            linkerSettings: [
+                .linkedFramework("ApplicationServices"),
+                .linkedFramework("AppKit"),
+            ]
+        ),
+
+        // Week-1 prototype CLI: discover windows, print a plan, optionally apply it.
+        .executableTarget(
+            name: "ordino-probe",
+            dependencies: ["Geometry", "LayoutEngine", "WindowKit"]
+        ),
+
+        .testTarget(name: "GeometryTests", dependencies: ["Geometry"]),
+        .testTarget(name: "LayoutEngineTests", dependencies: ["LayoutEngine", "Geometry"]),
+    ],
+    swiftLanguageModes: [.v6]
+)

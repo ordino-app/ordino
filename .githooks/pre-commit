@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Fast checks before every commit. Skip once with: git commit --no-verify
+set -euo pipefail
+files=()
+while IFS= read -r f; do files+=("$f"); done < <(git diff --cached --name-only --diff-filter=ACM -- '*.swift')
+[ "${#files[@]}" -eq 0 ] && exit 0
+if ! swift format lint --strict "${files[@]}"; then
+  echo "pre-commit: formatting issues. Run 'make format' and stage the changes." >&2
+  exit 1
+fi

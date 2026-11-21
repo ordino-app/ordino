@@ -1,0 +1,43 @@
+name: Release
+
+# Runs only on your Mac. Triggered by pushing a version tag, which requires
+# write access to the repo (and is further limited by the tag ruleset), so
+# no outside code can reach the self-hosted runner through this workflow.
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to (re)release, e.g. v0.1.0
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, sign, publish
+    runs-on: [self-hosted, macOS, ARM64, ordino]
+    # When the repo goes public (or on GitHub Pro), add a protected environment:
+    #   environment: release
+    # scripts/setup-github.sh creates it, limited to v* tags.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Test before shipping
+        run: swift test --parallel
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: scripts/release.sh "$TAG"

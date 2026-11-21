@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & test
+    # Runner choice (see docs/AUTOMATION.md):
+    # - Repository variable CI_RUNNER = "self-hosted" sends pushes and pull
+    #   requests from this repo's own branches to your Mac.
+    # - Pull requests from forks default to a GitHub-hosted runner. This is a
+    #   convenience, not a security boundary: a fork can edit this file. The
+    #   boundary is the repo setting that requires approval before workflows
+    #   from outside contributors run.
+    runs-on: ${{ (vars.CI_RUNNER == 'self-hosted' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","macOS","ARM64","ordino"]') || 'macos-26' }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Lint (swift-format)
+        run: swift format lint --strict --recursive --parallel Package.swift Sources Tests
+
+      - name: Build (release, universal)
+        run: swift build -c release --arch arm64 --arch x86_64
+
+      - name: Test
+        run: swift test --parallel
