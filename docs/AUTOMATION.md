@@ -43,8 +43,10 @@ Dependabot opens weekly PRs for GitHub Actions and Swift package updates.
 
 ```bash
 make bootstrap        # git hooks
-make github-setup     # repo settings, rulesets, release environment, security features
 make runner           # register this Mac as runner "ordino" (launchd service)
+git push -u origin main
+make github-setup     # repo settings, rulesets, release environment, security features
+                      # (after the first push: the main ruleset would reject it)
 ```
 
 Stop sending jobs to the Mac (CI falls back to GitHub-hosted runners):

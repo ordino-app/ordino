@@ -54,6 +54,12 @@ try_plan "fork PRs need your approval before any workflow runs" \
   gh api -X PUT "repos/$REPO/actions/permissions/fork-pr-contributor-approval" \
     -f approval_policy=all_external_contributors
 
+# A rule that requires status checks would also reject the very first push, so
+# protect main only once it exists on GitHub (push first, then run this).
+if ! gh api "repos/$REPO/branches/main" >/dev/null 2>&1; then
+  echo "   skip ruleset 'main' (push main first, then re-run this script)"
+  SKIPPED+=("ruleset 'main'")
+else
 try_plan "ruleset 'main': PRs only, required checks, no force-push or deletion" ruleset main <<'JSON'
 {
   "name": "main",
@@ -76,6 +82,7 @@ try_plan "ruleset 'main': PRs only, required checks, no force-push or deletion" 
   ]
 }
 JSON
+fi
 
 try_plan "ruleset 'release tags': only admins create, move or delete v* tags" ruleset "release tags" <<'JSON'
 {
