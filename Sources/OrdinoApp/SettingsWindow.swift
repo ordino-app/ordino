@@ -71,6 +71,10 @@ final class SettingsNavigation {
 /// becomes a regular app (Dock icon, ⌘-Tab) and goes back to accessory on close.
 @MainActor
 final class SettingsWindowController: NSObject, NSWindowDelegate {
+    static let defaultSize = NSSize(width: 760, height: 600)
+    static let minSize = NSSize(width: 700, height: 480)
+    static let maxSize = NSSize(width: 900, height: 1100)
+
     private unowned let app: AppDelegate
     private var window: NSWindow?
     private let navigation = SettingsNavigation()
@@ -104,17 +108,34 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     private func makeWindow() -> NSWindow {
         let root = SettingsView(app: app, navigation: navigation)
-        let controller = NSHostingController(rootView: root)
+        let controller = NSHostingController(
+            rootView: root.frame(
+                minWidth: Self.minSize.width, idealWidth: Self.defaultSize.width, maxWidth: Self.maxSize.width,
+                minHeight: Self.minSize.height, idealHeight: Self.defaultSize.height, maxHeight: Self.maxSize.height))
+        // The window takes its limits from the SwiftUI frame above (the hosting controller would otherwise
+        // replace contentMinSize/contentMaxSize with the content's own, much looser, limits).
+        controller.sizingOptions = [.minSize, .maxSize]
         let window = NSWindow(contentViewController: controller)
         window.title = "ordino Settings"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
         window.toolbarStyle = .unified
-        window.setContentSize(NSSize(width: 760, height: 560))
-        window.contentMinSize = NSSize(width: 680, height: 460)
+        window.setContentSize(Self.defaultSize)
+        // Like other Settings windows: resizable within a range the panes are designed for, so rows never
+        // stretch into a wide empty strip or squeeze their controls off the edge.
+        window.contentMinSize = Self.minSize
+        window.contentMaxSize = Self.maxSize
+        // No full screen: the green button zooms within the limits instead.
+        window.collectionBehavior.insert(.fullScreenNone)
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.setFrameAutosaveName("ordinoSettings")
+        // A size saved before these limits existed (e.g. stretched very wide) is pulled back into range.
+        let saved = window.contentRect(forFrameRect: window.frame).size
+        let clamped = NSSize(
+            width: min(max(saved.width, Self.minSize.width), Self.maxSize.width),
+            height: min(max(saved.height, Self.minSize.height), Self.maxSize.height))
+        if clamped != saved { window.setContentSize(clamped) }
         return window
     }
 }

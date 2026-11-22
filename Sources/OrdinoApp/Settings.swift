@@ -4,6 +4,56 @@ import Observation
 import ServiceManagement
 
 /// Which display "Arrange" works on.
+/// Optional groups in the menu bar menu (Settings › General › Menu). The arrange card, Arrange Windows,
+/// Undo, Settings and Quit are always there.
+enum MenuSection: String, CaseIterable, Identifiable, Sendable {
+    case layoutOptions, windowActions, workspaces, customLayouts, appOptions
+
+    var id: String { rawValue }
+    static let defaults: Set<MenuSection> = [.windowActions, .workspaces, .customLayouts, .appOptions]
+
+    var title: String {
+        switch self {
+        case .layoutOptions: "Layout, primary window and rotate"
+        case .windowActions: "Move Window (halves, corners, thirds…)"
+        case .workspaces: "Workspaces"
+        case .customLayouts: "Custom layouts"
+        case .appOptions: "Options for the active app"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .layoutOptions: "rectangle.3.group"
+        case .windowActions: "macwindow"
+        case .workspaces: "square.grid.2x2"
+        case .customLayouts: "rectangle.split.3x1"
+        case .appOptions: "app.badge"
+        }
+    }
+}
+
+/// How the menu bar icon looks.
+enum MenuBarIconStyle: String, CaseIterable, Identifiable, Sendable {
+    /// One colour, drawn by macOS like other menu bar icons.
+    case monochrome
+    /// The brand colours; the two small tiles follow the menu bar (light or dark).
+    case colorAutomatic
+    /// The brand colours with dark small tiles, for a light menu bar.
+    case colorLight
+    /// The brand colours with light small tiles, for a dark menu bar.
+    case colorDark
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .monochrome: "Monochrome"
+        case .colorAutomatic: "Colour, follows light or dark"
+        case .colorLight: "Colour, light menu bar"
+        case .colorDark: "Colour, dark menu bar"
+        }
+    }
+}
+
 enum ArrangeTarget: String, CaseIterable, Identifiable, Sendable {
     case displayUnderMouse
     case displayWithFocusedWindow
@@ -60,6 +110,8 @@ final class Settings {
         }
     }
     var arrangeTarget: ArrangeTarget { didSet { save(arrangeTarget.rawValue, "arrangeTarget") } }
+    var menuBarIconStyle: MenuBarIconStyle { didSet { save(menuBarIconStyle.rawValue, "menuBarIconStyle") } }
+    var menuSections: Set<MenuSection> { didSet { save(menuSections.map(\.rawValue).sorted(), "menuSections") } }
 
     // MARK: Feedback and appearance
 
@@ -80,6 +132,14 @@ final class Settings {
     /// Per-app placement rules: bundle ID -> WindowAction raw value. Ruled apps are left out of
     /// layouts and put in their place after each arrange.
     var appRules: [String: String] { didSet { save(appRules, "appRules") } }
+    /// User-defined grid layouts (Settings › Layouts › Custom layouts), stored as JSON.
+    var customLayouts: [CustomLayout] {
+        didSet { if let data = try? JSONEncoder().encode(customLayouts) { save(data, "customLayouts") } }
+    }
+    /// Saved workspaces (Settings › Layouts › Workspaces), stored as JSON.
+    var workspaces: [Workspace] {
+        didSet { if let data = try? JSONEncoder().encode(workspaces) { save(data, "workspaces") } }
+    }
 
     // MARK: Updates and shortcuts
 
@@ -101,11 +161,24 @@ final class Settings {
         cycleOnRepeat = defaults.object(forKey: "cycleOnRepeat") as? Bool ?? true
         arrangeTarget =
             defaults.string(forKey: "arrangeTarget").flatMap(ArrangeTarget.init(rawValue:)) ?? .displayUnderMouse
+        menuBarIconStyle =
+            defaults.string(forKey: "menuBarIconStyle").flatMap(MenuBarIconStyle.init(rawValue:)) ?? .monochrome
+        menuSections =
+            (defaults.stringArray(forKey: "menuSections")).map { Set($0.compactMap(MenuSection.init(rawValue:))) }
+            ?? MenuSection.defaults
         showArrangeHUD = defaults.object(forKey: "showArrangeHUD") as? Bool ?? true
         showActionHUD = defaults.object(forKey: "showActionHUD") as? Bool ?? false
         rearrangeOnDisplayChange = defaults.object(forKey: "rearrangeOnDisplayChange") as? Bool ?? true
         snapOnDrag = defaults.object(forKey: "snapOnDrag") as? Bool ?? true
         appRules = defaults.dictionary(forKey: "appRules") as? [String: String] ?? [:]
+        customLayouts =
+            (defaults.data(forKey: "customLayouts")).flatMap {
+                try? JSONDecoder().decode([CustomLayout].self, from: $0)
+            }
+            ?? []
+        workspaces =
+            (defaults.data(forKey: "workspaces")).flatMap { try? JSONDecoder().decode([Workspace].self, from: $0) }
+            ?? []
         showMenuBarIcon = defaults.object(forKey: "showMenuBarIcon") as? Bool ?? true
         primaryApps = defaults.stringArray(forKey: "primaryApps") ?? []
         ignoredApps = defaults.stringArray(forKey: "excludedBundleIDs") ?? []

@@ -4,12 +4,12 @@ Status: `[x]` done · `[~]` in progress · `[ ]` not started. Keep this file cur
 
 ## Next (agreed 2026-11-22)
 
-- [ ] **1. Saved workspaces.** Named sets like "Coding" = editor left, browser right, terminal bottom.
-  One shortcut launches missing apps and puts each window in its slot.
-  - Model: `Workspace { name, slots: [(bundleID, frame as fractions of the visible frame)] }`, stored in Settings (JSON in UserDefaults).
-  - "Save current arrangement as workspace…" in the menu captures bundle IDs + frames of the display under the mouse.
-  - Apply: `NSWorkspace.openApplication` for missing apps, wait for their first window (poll ≤5 s), then move with `WindowMover`.
-  - Settings pane "Workspaces": list, rename, delete, a shortcut per workspace (dynamic `KeyboardShortcuts.Name`).
+- [x] **1. Saved workspaces.** `Workspaces.swift`: menu › Workspaces › "Save Current Layout as Workspace…" captures the
+  windows of the display under the mouse (bundle ID + frame as fractions of the visible frame). Applying opens apps
+  that aren't running (in the background), waits up to ~6 s for their windows, and puts window i of each app into its
+  i-th slot on the display under the mouse. Settings › Layouts › Workspaces: rename, per-workspace shortcut, apply,
+  delete. Stored as JSON in UserDefaults (`workspaces`).
+  - Ideas: remember a preferred display, include apps' window titles to match the right window, launch arguments.
 - [x] **2. Re-arrange when displays change.** After a monitor is connected or disconnected (2 s debounce), every
   display ordino arranged before gets its last layout again (`AppDelegate.displaysChanged`). Toggle in Settings ›
   General › Displays (on by default). The layout memory is in-memory only: after relaunching ordino a display is
@@ -21,8 +21,11 @@ Status: `[x]` done · `[~]` in progress · `[ ]` not started. Keep this file cur
     `AppRule { bundleID, action: WindowAction }` (e.g. `.bottomRightQuarter`).
   - Done: `Settings.appRules` (bundle ID -> WindowAction), menu "Always Place <app>", Settings › Apps › Rules.
     Ruled apps are excluded from layouts and placed after each arrange (`AppDelegate.applyAppRules`).
-  - Still open: the layout still uses the full area (it may overlap a ruled window); subtract ruled rects.
-  - Later: apply the rule when the app opens a new window (AXObserver `kAXWindowCreatedNotification`).
+  - Done: layouts use the largest free part of the display next to ruled windows (`FreeArea`, tested), unless
+    less than 400x300 pt would be left.
+  - Done: windows of a ruled app are placed when the app launches or comes to the front, once per window
+    (`placeNewWindows`); afterwards the user may move them. A window opened without activating its app waits
+    for the next arrange (an AXObserver for kAXWindowCreatedNotification would catch it immediately).
 - [x] **5. Drag to the screen edge to snap** (like Windows / Rectangle). `DragSnap.swift` + `SnapZone` (tested):
   left/right edge = half, top = maximize, corners = quarters, bottom edge = nothing (Dock). Translucent preview
   panel while dragging, ⌘ disables it, ignored apps skipped, off while another window manager runs.
@@ -32,14 +35,22 @@ Status: `[x]` done · `[~]` in progress · `[ ]` not started. Keep this file cur
     Only outer screen edges snap (edges shared between displays don't), unsnap restores size, defers to macOS tiling.
     Tested by hand by the owner on 3 monitors incl. portrait.
 
-## Later
+## Later (done 2026-11-23 unless noted)
 
-- [ ] 6. Gaps and margins: already in Settings › Layouts; add a live preview.
-- [ ] 7. Custom layouts: user-drawn grids (e.g. 3 columns for ultrawide).
-- [ ] 8. Arrange only selected windows (e.g. the two most recently used).
-- [ ] 9. Automation: URL scheme `ordino://arrange?layout=…`, App Intents for Shortcuts.app, Raycast extension.
-- [ ] 10. Stage Manager / Spaces awareness: per-Space layouts.
-- [ ] 11. First-run walkthrough polish (Accessibility + the three basic shortcuts).
+- [x] 6. Gaps and margins preview: Settings › Layouts already draws a live diagram from the gap/margin/ratio sliders.
+- [x] 7. Custom layouts: `CustomLayouts.swift` + `GridLayout` (tested). Settings › Layouts › Custom layouts
+  (name, columns 1–6, rows 1–4, shortcut, apply); menu › Custom Layouts. Most recent windows fill the grid.
+- [x] 8. Arrange only recent windows: commands "Arrange Two/Three Recent Windows" (Settings › Shortcuts, no default
+  keys) and `ordino://arrange?recent=N`; `AXBackend.windowLimit`.
+- [x] 9. Automation: `ordino://` links (`AutomationURL`, tested; CFBundleURLTypes in bundle-app.sh), README
+  "Automation" for Shortcuts.app and Raycast Quicklinks.
+  - Not done: native App Intents (needs Xcode's metadata processor, not available to a SwiftPM build) and a
+    Raycast store extension (separate TypeScript repo). Links cover both use cases for now.
+- [x] 10. Spaces: layout choices remembered per Space (`Spaces.activeSpaceID` via CGSGetActiveSpace looked up at run
+  time, `ArrangeCoordinator.spaceID`, falls back to the display-wide choice). Stage Manager: only on-screen windows
+  are arranged, so a stage's windows are what gets arranged. Per-Space workspaces are not done.
+- [x] 11. Welcome window lists the basic shortcuts (read live from the user's settings) and where everything is.
+- [x] Middle display halves: an edge shared with another display snaps after resting there ~0.35 s.
 
 ## Project / ops follow-ups
 
@@ -55,4 +66,4 @@ Status: `[x]` done · `[~]` in progress · `[ ]` not started. Keep this file cur
 ## Progress log
 
 - 2026-11-22: roadmap written; item 3 confirmed already shipped. Items 2 and 4 (first version) landed on
-  `feat/multi-display-rules`. Items 1 and 5 not started: 5 followed the same day (PR #7). Next up: 1 (workspaces).
+  `feat/multi-display-rules`. Items 1 and 5 not started: 5 followed the same day (PR #7). Workspaces (1) and the rest of 4 followed on `feat/workspaces-rules`.

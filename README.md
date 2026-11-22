@@ -106,6 +106,26 @@ Layouts: `maximize`, `centered`, `columns`, `rows`, `masterStack`, `grid`, `bsp`
 
 The focused window becomes the master. Everyone else moves as little as possible, so arranging twice does nothing.
 
+## Automation
+
+ordino answers `ordino://` links, so Shortcuts.app ("Open URLs"), Raycast Quicklinks, Alfred or a script can drive it:
+
+| Link | Does |
+| --- | --- |
+| `ordino://arrange` | Arrange the display |
+| `ordino://arrange?recent=2` | Arrange only the 2 most recently used windows |
+| `ordino://layout/columns` | Use a layout: `columns`, `rows`, `grid`, `masterStack`, `bsp`, `maximize`, `centered` |
+| `ordino://next-layout`, `previous-layout`, `rotate`, `undo` | Same as the shortcuts |
+| `ordino://window/leftHalf` | A window action on the focused window (`rightHalf`, `topLeft`, `firstThird`, `maximize`, …) |
+| `ordino://workspace/Coding` | Apply a saved workspace by name |
+| `ordino://custom/3%20Columns` | Apply a custom layout by name |
+
+```bash
+open "ordino://arrange?recent=2"
+```
+
+Raycast: *Create Quicklink*, paste a link, give it a hotkey or alias.
+
 ## Privacy
 
 ordino uses only the Accessibility permission. It never records the screen, and nothing leaves your Mac.

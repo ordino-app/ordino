@@ -12,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) lazy var coordinator = ArrangeCoordinator(
         backend: backend, preferences: settings.preferences, preferredLayouts: settings.preferredLayouts)
     private(set) lazy var windowActions = WindowActionController(settings: settings)
+    private(set) lazy var workspaces = WorkspaceController(settings: settings)
+    private(set) lazy var customLayouts = CustomLayoutController(settings: settings)
     private(set) lazy var updater = Updater(settings: settings)
     private var menu: MenuController?
     private let hud = HUD()
@@ -34,6 +36,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updater.onChange = { [weak self] in self?.menu?.refresh() }
         observeSettings()
         observeDisplayChanges()
+        observeRuledApps()
+        workspaces.registerShortcuts { [weak self] in self?.applyWorkspace($0) }
+        registerCustomLayoutShortcuts()
         dragSnap = DragSnapController(settings: settings, windowActions: windowActions) { [weak self] outcome in
             if case .done(let action, let appName) = outcome, self?.settings.showActionHUD == true {
                 self?.hud.show("\(action.title) · \(appName)")
@@ -45,6 +50,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if UserDefaults.standard.string(forKey: "ordinoSnapshotDir") != nil { return }
         #endif
         if !AccessibilityPermission.isTrusted { showOnboarding() }
+    }
+
+    /// `ordino://` links from Shortcuts.app, Raycast or scripts (see `AutomationURL`).
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            guard let request = AutomationURL(url) else {
+                hud.show("Unknown ordino link: \(url.absoluteString)")
+                continue
+            }
+            handle(request)
+        }
+    }
+
+    private func handle(_ request: AutomationURL) {
+        let focused = WindowDiscovery.focusedWindowID()
+        switch request {
+        case .arrange(let recent): run(.arrange, focusedID: focused, limit: recent)
+        case .layout(let layout): run(.layout(layout), focusedID: focused)
+        case .nextLayout: run(.nextLayout, focusedID: focused)
+        case .previousLayout: run(.previousLayout, focusedID: focused)
+        case .rotate: run(.rotate, focusedID: focused)
+        case .undo: undo()
+        case .window(let action): performWindowAction(action)
+        case .workspace(let name):
+            if let ws = settings.workspaces.first(where: { $0.name.lowercased() == name.lowercased() }) {
+                applyWorkspace(ws.id)
+            } else {
+                hud.show("No workspace named \(name)")
+            }
+        case .custom(let name):
+            if let l = settings.customLayouts.first(where: { $0.name.lowercased() == name.lowercased() }) {
+                applyCustomLayout(l.id)
+            } else {
+                hud.show("No custom layout named \(name)")
+            }
+        }
     }
 
     /// Launching ordino again (Finder, Spotlight) opens Settings, so it stays
@@ -63,6 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .previousLayout: run(.previousLayout, focusedID: WindowDiscovery.focusedWindowID())
         case .rotate: run(.rotate, focusedID: WindowDiscovery.focusedWindowID())
         case .undo: undo()
+        case .arrangeRecent(let n): run(.arrange, focusedID: WindowDiscovery.focusedWindowID(), limit: n)
         case .window(let action): performWindowAction(action)
         }
     }
@@ -73,7 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ///   - display: the display to arrange; `nil` = per the "Arrange" setting.
     func run(
         _ action: ArrangeCoordinator.Action, focusedID: WindowID?, primaryID: WindowID? = nil,
-        display: DisplaySnapshot? = nil
+        display: DisplaySnapshot? = nil, limit: Int? = nil
     ) {
         guard AccessibilityPermission.isTrusted else {
             showOnboarding()
@@ -81,7 +123,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let target = display ?? arrangeDisplay()
         Task {
-            let outcome = await coordinator.perform(action, focusedID: focusedID, primaryID: primaryID, display: target)
+            let area = target.map(layoutArea(for:))
+            backend.windowLimit = limit
+            coordinator.spaceID = Spaces.activeSpaceID()
+            let outcome = await coordinator.perform(action, focusedID: focusedID, primaryID: primaryID, display: area)
+            backend.windowLimit = nil
             if case .arranged(let r) = outcome, let id = target?.id { lastLayouts[id] = r.layout }
             if let target { await applyAppRules(on: target) }
             settings.preferredLayouts = coordinator.preferredLayouts
@@ -132,21 +178,120 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Puts windows of apps with a rule (Settings › Apps › Rules) in their place on `display`.
     /// Those apps are excluded from layouts, so this runs after every arrange.
     func applyAppRules(on display: DisplaySnapshot) async {
-        guard !settings.appRules.isEmpty, let info = Displays.all().first(where: { $0.uuid == display.id }) else {
+        guard let info = Displays.all().first(where: { $0.uuid == display.id }) else { return }
+        let placed = ruledPlacements(on: info)
+        guard !placed.isEmpty else { return }
+        _ = await WindowMover().apply(
+            Dictionary(placed.map { ($0.window.info.id, $0.frame) }, uniquingKeysWith: { a, _ in a }),
+            to: placed.map(\.window))
+        placedByRule.formUnion(placed.map(\.window.info.id))
+    }
+
+    /// Windows on `info` whose app has a rule, with the frame the rule gives them.
+    private func ruledPlacements(on info: DisplayInfo, only bundleID: String? = nil)
+        -> [(window: DiscoveredWindow, frame: Rect)]
+    {
+        guard !settings.appRules.isEmpty else { return [] }
+        let engine = settings.windowActionEngine
+        return WindowDiscovery().windows(on: info, focusedID: nil).windows.compactMap { w in
+            guard let id = w.bundleID, bundleID == nil || id == bundleID,
+                let raw = settings.appRules[id], let action = WindowAction(rawValue: raw),
+                let frame = engine.frame(for: action, window: w.info.frame, area: info.visibleFrame)
+            else { return nil }
+            return (w, frame)
+        }
+    }
+
+    /// The display to arrange, shrunk to the free part next to windows placed by rules, so the layout
+    /// doesn't cover them. Falls back to the whole display when too little would be left.
+    private func layoutArea(for display: DisplaySnapshot) -> DisplaySnapshot {
+        guard let info = Displays.all().first(where: { $0.uuid == display.id }) else { return display }
+        let obstacles = ruledPlacements(on: info).map(\.frame)
+        guard !obstacles.isEmpty else { return display }
+        let free = FreeArea.largest(in: display.visibleFrame, avoiding: obstacles)
+        guard free.w >= 400, free.h >= 300 else { return display }
+        return DisplaySnapshot(id: display.id, name: display.name, visibleFrame: free)
+    }
+
+    // MARK: - Workspaces
+
+    func applyWorkspace(_ id: UUID) {
+        guard let ws = settings.workspaces.first(where: { $0.id == id }) else { return }
+        guard AccessibilityPermission.isTrusted else { return showOnboarding() }
+        Task {
+            switch await workspaces.apply(ws) {
+            case .placed(let n, let missing):
+                var text = "\(ws.name) · \(n) window\(n == 1 ? "" : "s")"
+                if !missing.isEmpty { text += " · not installed: \(missing.joined(separator: ", "))" }
+                hud.show(text)
+            case .nothingToPlace:
+                hud.show("\(ws.name) · no windows to place")
+            }
+        }
+    }
+
+    func applyCustomLayout(_ id: UUID) {
+        guard let layout = settings.customLayouts.first(where: { $0.id == id }) else { return }
+        guard AccessibilityPermission.isTrusted else { return showOnboarding() }
+        guard let target = arrangeDisplay(), let info = Displays.all().first(where: { $0.uuid == target.id }) else {
             return
         }
-        let engine = settings.windowActionEngine
-        let windows = WindowDiscovery().windows(on: info, focusedID: nil).windows
-        var frames: [WindowID: Rect] = [:]
-        var ruled: [DiscoveredWindow] = []
-        for w in windows {
-            guard let id = w.bundleID, let raw = settings.appRules[id], let action = WindowAction(rawValue: raw),
-                let frame = engine.frame(for: action, window: w.info.frame, area: info.visibleFrame)
-            else { continue }
-            frames[w.info.id] = frame
-            ruled.append(w)
+        Task {
+            let n = await customLayouts.apply(layout, on: info)
+            hud.show(n == 0 ? "No windows to arrange" : "\(layout.name) · \(n) window\(n == 1 ? "" : "s")")
         }
-        if !frames.isEmpty { _ = await WindowMover().apply(frames, to: ruled) }
+    }
+
+    func registerCustomLayoutShortcuts() {
+        customLayouts.registerShortcuts { [weak self] in self?.applyCustomLayout($0) }
+    }
+
+    func saveWorkspace() {
+        guard AccessibilityPermission.isTrusted else { return showOnboarding() }
+        if let ws = workspaces.saveCurrent() {
+            workspaces.registerShortcuts { [weak self] in self?.applyWorkspace($0) }
+            hud.show("Saved \(ws.name) · \(ws.slots.count) window\(ws.slots.count == 1 ? "" : "s")")
+            menu?.refresh()
+        }
+    }
+
+    // MARK: - Rules for windows that appear later
+
+    /// Windows already put in place by a rule; new windows of a ruled app are placed once, then left to the user.
+    private var placedByRule: Set<WindowID> = []
+
+    private func observeRuledApps() {
+        let center = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didActivateApplicationNotification] {
+            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+                let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+                let bundleID = app?.bundleIdentifier
+                MainActor.assumeIsolated { self?.placeNewWindows(of: bundleID) }
+            }
+        }
+    }
+
+    /// Puts windows of a ruled app that ordino hasn't placed yet in their place. Runs when the app launches or
+    /// comes to the front (a new window brings its app forward), retrying briefly while a launch opens its window.
+    private func placeNewWindows(of bundleID: String?) {
+        guard let bundleID, settings.appRules[bundleID] != nil, AccessibilityPermission.isTrusted else { return }
+        Task {
+            for attempt in 0..<8 {
+                if attempt > 0 { try? await Task.sleep(for: .milliseconds(500)) }
+                var fresh: [(window: DiscoveredWindow, frame: Rect)] = []
+                for info in Displays.all() {
+                    fresh += ruledPlacements(on: info, only: bundleID).filter {
+                        !placedByRule.contains($0.window.info.id)
+                    }
+                }
+                guard !fresh.isEmpty else { continue }
+                _ = await WindowMover().apply(
+                    Dictionary(fresh.map { ($0.window.info.id, $0.frame) }, uniquingKeysWith: { a, _ in a }),
+                    to: fresh.map(\.window))
+                placedByRule.formUnion(fresh.map(\.window.info.id))
+                return
+            }
+        }
     }
 
     func setRule(_ action: WindowAction?, bundleID: String) {
@@ -179,7 +324,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             for info in Displays.all() {
                 guard let layout = lastLayouts[info.uuid] else { continue }
                 let display = DisplaySnapshot(id: info.uuid, name: info.name, visibleFrame: info.visibleFrame)
-                if case .arranged = await coordinator.perform(.layout(layout), focusedID: nil, display: display) {
+                if case .arranged = await coordinator.perform(
+                    .layout(layout), focusedID: nil, display: layoutArea(for: display))
+                {
                     arranged += 1
                 }
                 await applyAppRules(on: display)
@@ -244,6 +391,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         backend.excludedBundleIDs = Set(settings.ignoredApps).union(settings.appRules.keys)
         coordinator.preferredPrimaryApps = settings.primaryApps
         menu?.setVisible(settings.showMenuBarIcon)
+        menu?.refresh()
         syncDragSnap()
     }
 
@@ -255,6 +403,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             _ = settings.snapOnDrag
             _ = settings.primaryApps
             _ = settings.showMenuBarIcon
+            _ = settings.menuBarIconStyle
         } onChange: { [weak self] in
             Task { @MainActor in
                 self?.syncSettings()

@@ -106,6 +106,11 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>NSHighResolutionCapable</key><true/>
   <key>NSHumanReadableCopyright</key><string>© 2026 Samuel Šugra. MIT License.</string>
   <key>SUFeedURL</key><string>$FEED_URL</string>
+  <key>CFBundleURLTypes</key>
+  <array><dict>
+    <key>CFBundleURLName</key><string>$BUNDLE_ID</string>
+    <key>CFBundleURLSchemes</key><array><string>ordino</string></array>
+  </dict></array>
   <key>SUPublicEDKey</key><string>$PUBLIC_ED_KEY</string>
   <key>SUEnableAutomaticChecks</key><true/>
   <key>SUScheduledCheckInterval</key><integer>86400</integer>

@@ -32,6 +32,8 @@ final class DragSnapController {
     private var moveStartY: Double?
     /// Once the bar appeared in this drag it stays while the cursor is near the top.
     private var barArmed = false
+    /// Resting at an edge shared with another display: which snap it would be, and since when.
+    private var dwell: (action: WindowAction, since: ContinuousClock.Instant)?
     private let mover = WindowMover()
 
     init(
@@ -176,8 +178,26 @@ final class DragSnapController {
             bar.orderOut(nil)
         }
         if action == nil {
-            action = SnapZone.action(
-                x: px, y: py, in: display.frame, others: displays.filter { $0.id != display.id }.map(\.frame))
+            let others = displays.filter { $0.id != display.id }.map(\.frame)
+            action = SnapZone.action(x: px, y: py, in: display.frame, others: others)
+            // An edge shared with another display (e.g. both sides of a middle monitor) snaps only after the
+            // cursor rests there briefly, so moving a window across to the other display stays free.
+            if action == nil, let doorway = SnapZone.action(x: px, y: py, in: display.frame) {
+                let now = ContinuousClock.now
+                if let d = dwell, d.action == doorway {
+                    if now - d.since >= .milliseconds(350) { action = doorway }
+                } else {
+                    dwell = (doorway, now)
+                    // No drag events arrive while the mouse rests: check again once the pause is long enough.
+                    Task { @MainActor [weak self] in
+                        try? await Task.sleep(for: .milliseconds(380))
+                        guard let self, self.isMoving, self.dwell?.action == doorway else { return }
+                        self.updateTarget()
+                    }
+                }
+            } else {
+                dwell = nil
+            }
         }
         guard let action,
             let frame = settings.windowActionEngine.frame(for: action, window: drag?.origin ?? .zero, area: visible)
@@ -203,6 +223,7 @@ final class DragSnapController {
         restoreFrame = nil
         moveStartY = nil
         barArmed = false
+        dwell = nil
         dragStart = nil
         lastCheck = nil
         hidePreview()

@@ -53,15 +53,58 @@ final class MenuController: NSObject, NSMenuDelegate {
     private func refreshIcon() {
         guard let button = statusItem?.button else { return }
         let updateWaiting = app.updater.updateAvailable
-        var image = Bundle.main.image(forResource: "MenuBarIcon")
-        if image == nil || updateWaiting {
-            image = NSImage(
-                systemSymbolName: updateWaiting ? "rectangle.split.2x2.fill" : "rectangle.split.2x2",
-                accessibilityDescription: "ordino")
-        }
-        image?.isTemplate = true
-        button.image = image
+        button.image = Self.icon(style: app.settings.menuBarIconStyle, updateWaiting: updateWaiting)
         button.setAccessibilityLabel(updateWaiting ? "ordino, update available" : "ordino")
+    }
+
+    /// The menu bar icon. Monochrome is a template image macOS tints; the colour styles draw the brand mark
+    /// (terracotta primary tile, graphite or off-white stack). The automatic one is drawn on demand, so it
+    /// follows the menu bar's appearance whenever it changes (light/dark mode, wallpaper tinting).
+    static func icon(style: MenuBarIconStyle, updateWaiting: Bool) -> NSImage? {
+        if style == .monochrome {
+            var image = Bundle.main.image(forResource: "MenuBarIcon")
+            if image == nil || updateWaiting {
+                image = NSImage(
+                    systemSymbolName: updateWaiting ? "rectangle.split.2x2.fill" : "rectangle.split.2x2",
+                    accessibilityDescription: "ordino")
+            }
+            image?.isTemplate = true
+            return image
+        }
+        let terracotta = NSColor(srgbRed: 0.851, green: 0.396, blue: 0.231, alpha: 1)
+        let graphite = NSColor(srgbRed: 0.169, green: 0.176, blue: 0.192, alpha: 1)
+        let offWhite = NSColor(srgbRed: 0.929, green: 0.918, blue: 0.894, alpha: 1)
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { rect in
+            let dark: Bool =
+                switch style {
+                case .colorDark: true
+                case .colorLight: false
+                default: NSAppearance.currentDrawing().bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                }
+            let s = 15.0 / 48
+            let x0 = (rect.width - 48 * s) / 2
+            let y0 = (rect.height - 48 * s) / 2
+            func tile(_ x: Double, _ y: Double, _ w: Double, _ h: Double, _ color: NSColor) {
+                color.setFill()
+                NSBezierPath(
+                    roundedRect: NSRect(x: x0 + x * s, y: y0 + y * s, width: w * s, height: h * s),
+                    xRadius: 4.3 * s, yRadius: 4.3 * s
+                ).fill()
+            }
+            let stack = dark ? offWhite : graphite
+            tile(0, 0, 24.6, 48, terracotta)
+            tile(30, 0, 18, 24.6, stack)
+            tile(30, 30, 18, 18, stack)
+            if updateWaiting {
+                // A small dot on the top tile: an update is ready.
+                NSColor.systemBlue.setFill()
+                NSBezierPath(ovalIn: NSRect(x: rect.width - 6, y: 0, width: 6, height: 6)).fill()
+            }
+            return true
+        }
+        image.isTemplate = false
+        image.accessibilityDescription = "ordino"
+        return image
     }
 
     // MARK: NSMenuDelegate
@@ -101,26 +144,39 @@ final class MenuController: NSObject, NSMenuDelegate {
             menu.addItem(note)
         }
 
+        let sections = app.settings.menuSections
         menu.addItem(.separator())
-        addWindowActions(enabled: trusted)
-        menu.addItem(.separator())
-
-        if let frontmost = frontmostApp() {
-            let ignored = app.settings.ignoredApps.contains(frontmost.bundleID)
+        if sections.contains(.windowActions) {
+            let moves = NSMenu()
+            moves.autoenablesItems = false
+            addWindowActions(to: moves, enabled: trusted)
+            let parent = submenu("Move Window", moves)
+            parent.image = NSImage(systemSymbolName: "macwindow", accessibilityDescription: nil)
+            parent.isEnabled = trusted
+            menu.addItem(parent)
+        }
+        if sections.contains(.workspaces) { menu.addItem(workspacesMenu(enabled: trusted)) }
+        if sections.contains(.customLayouts), !app.settings.customLayouts.isEmpty {
+            menu.addItem(customLayoutsMenu(enabled: trusted))
+        }
+        if sections.contains(.appOptions), let frontmost = frontmostApp() {
+            let options = NSMenu()
             let ignore = item("Ignore \(frontmost.name)") { [weak self] in
                 self?.app.toggleIgnored(bundleID: frontmost.bundleID)
             }
-            ignore.state = ignored ? .on : .off
-            menu.addItem(ignore)
-            menu.addItem(ruleMenu(for: frontmost.bundleID, name: frontmost.name))
-            menu.addItem(.separator())
+            ignore.state = app.settings.ignoredApps.contains(frontmost.bundleID) ? .on : .off
+            options.addItem(ignore)
+            options.addItem(ruleMenu(for: frontmost.bundleID, name: "Always Place"))
+            let parent = submenu(frontmost.name, options)
+            parent.image = NSImage(systemSymbolName: "app.badge", accessibilityDescription: nil)
+            menu.addItem(parent)
         }
+        if menu.items.last?.isSeparatorItem == false { menu.addItem(.separator()) }
 
         let settings = item("Settings…") { [weak self] in self?.app.showSettings() }
         settings.keyEquivalent = ","
         settings.keyEquivalentModifierMask = .command
         menu.addItem(settings)
-        menu.addItem(item("About ordino") { [weak self] in self?.app.showSettings(pane: .about) })
         if app.updater.isAvailable {
             let title = app.updater.updateAvailable ? "Update Available…" : "Check for Updates…"
             let update = item(title) { [weak self] in self?.app.updater.checkForUpdates() }
@@ -168,10 +224,12 @@ final class MenuController: NSObject, NSMenuDelegate {
                 entry.state = layout == preview.plan.layout ? .on : .off
                 layouts.addItem(entry)
             }
-            menu.addItem(submenu("Layout", layouts))
+            if app.settings.menuSections.contains(.layoutOptions) { menu.addItem(submenu("Layout", layouts)) }
 
             // Primary window: only meaningful for Master + Stack.
-            if preview.plan.candidates.contains(.masterStack), preview.windowIDs.count > 1 {
+            if app.settings.menuSections.contains(.layoutOptions), preview.plan.candidates.contains(.masterStack),
+                preview.windowIDs.count > 1
+            {
                 let primary = NSMenu()
                 let automatic = item("Automatic (\(autoPrimaryName(preview)))") { [weak self] in
                     self?.primaryOverride = nil
@@ -199,13 +257,15 @@ final class MenuController: NSObject, NSMenuDelegate {
             }
         }
 
-        menu.addItem(commandItem(.rotate) { [weak self] in self?.run(.rotate) })
+        if app.settings.menuSections.contains(.layoutOptions) {
+            menu.addItem(commandItem(.rotate) { [weak self] in self?.run(.rotate) })
+        }
         let undo = commandItem(.undo) { [weak self] in self?.app.undo() }
         undo.isEnabled = app.coordinator.canUndo
         menu.addItem(undo)
     }
 
-    private func addWindowActions(enabled: Bool) {
+    private func addWindowActions(to target: NSMenu, enabled: Bool) {
         let sections: [[WindowAction]] = [
             [.leftHalf, .rightHalf, .centerHalf, .topHalf, .bottomHalf],
             [.topLeft, .topRight, .bottomLeft, .bottomRight],
@@ -215,15 +275,15 @@ final class MenuController: NSObject, NSMenuDelegate {
         ]
         let multipleDisplays = Displays.all().count > 1
         for (index, section) in sections.enumerated() {
-            if index > 0 { menu.addItem(.separator()) }
+            if index > 0 { target.addItem(.separator()) }
             for action in section {
                 let entry = actionItem(action)
                 let needsDisplays = action == .nextDisplay || action == .previousDisplay
                 entry.isEnabled = enabled && (!needsDisplays || multipleDisplays)
-                menu.addItem(entry)
+                target.addItem(entry)
             }
         }
-        menu.addItem(.separator())
+        target.addItem(.separator())
         let groups: [(String, [WindowAction])] = [
             ("Move to Edge", [.moveLeft, .moveRight, .moveUp, .moveDown]),
             (
@@ -248,7 +308,7 @@ final class MenuController: NSObject, NSMenuDelegate {
             }
             let parent = submenu(title, sub)
             parent.isEnabled = enabled
-            menu.addItem(parent)
+            target.addItem(parent)
         }
     }
 
@@ -303,10 +363,50 @@ final class MenuController: NSObject, NSMenuDelegate {
         return entry
     }
 
+    /// "Custom Layouts" submenu: the user's grids (Settings › Layouts).
+    private func customLayoutsMenu(enabled: Bool) -> NSMenuItem {
+        let parent = NSMenuItem(title: "Custom Layouts", action: nil, keyEquivalent: "")
+        parent.image = NSImage(systemSymbolName: "rectangle.split.3x1", accessibilityDescription: nil)
+        let sub = NSMenu()
+        for layout in app.settings.customLayouts {
+            let i = item("\(layout.name)  (\(layout.columns)×\(layout.rows))") { [weak self] in
+                self?.app.applyCustomLayout(layout.id)
+            }
+            i.isEnabled = enabled
+            if let shortcut = KeyboardShortcuts.getShortcut(for: layout.shortcutName) { i.setShortcut(shortcut) }
+            sub.addItem(i)
+        }
+        sub.addItem(.separator())
+        sub.addItem(item("Manage Custom Layouts…") { [weak self] in self?.app.showSettings(pane: .layouts) })
+        parent.submenu = sub
+        return parent
+    }
+
+    /// "Workspaces" submenu: apply a saved workspace, or save the current display as one.
+    private func workspacesMenu(enabled: Bool) -> NSMenuItem {
+        let parent = NSMenuItem(title: "Workspaces", action: nil, keyEquivalent: "")
+        parent.image = NSImage(systemSymbolName: "square.grid.2x2", accessibilityDescription: nil)
+        let sub = NSMenu()
+        for ws in app.settings.workspaces {
+            let i = item(ws.name) { [weak self] in self?.app.applyWorkspace(ws.id) }
+            i.toolTip = ws.summary
+            i.isEnabled = enabled
+            if let shortcut = KeyboardShortcuts.getShortcut(for: ws.shortcutName) { i.setShortcut(shortcut) }
+            sub.addItem(i)
+        }
+        if !app.settings.workspaces.isEmpty { sub.addItem(.separator()) }
+        let save = item("Save Current Layout as Workspace…") { [weak self] in self?.app.saveWorkspace() }
+        save.isEnabled = enabled
+        sub.addItem(save)
+        sub.addItem(item("Manage Workspaces…") { [weak self] in self?.app.showSettings(pane: .layouts) })
+        parent.submenu = sub
+        return parent
+    }
+
     /// "Always Place <App>" submenu: a per-app rule (Settings › Apps › Rules).
     private func ruleMenu(for bundleID: String, name: String) -> NSMenuItem {
         let current = app.settings.appRules[bundleID].flatMap(WindowAction.init(rawValue:))
-        let parent = NSMenuItem(title: "Always Place \(name)", action: nil, keyEquivalent: "")
+        let parent = NSMenuItem(title: name, action: nil, keyEquivalent: "")
         let sub = NSMenu()
         let none = item("Not Set") { [weak self] in self?.app.setRule(nil, bundleID: bundleID) }
         none.state = current == nil ? .on : .off
@@ -314,6 +414,7 @@ final class MenuController: NSObject, NSMenuDelegate {
         sub.addItem(.separator())
         for action in WindowAction.ruleChoices {
             let i = item(action.title) { [weak self] in self?.app.setRule(action, bundleID: bundleID) }
+            i.image = ActionIcons.image(for: action)
             i.state = current == action ? .on : .off
             sub.addItem(i)
         }

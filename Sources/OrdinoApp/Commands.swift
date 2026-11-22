@@ -9,9 +9,13 @@ enum Command: Hashable, Identifiable, Sendable {
     case previousLayout
     case rotate
     case undo
+    /// Arrange only the N most recently used windows of the display; the rest stay put.
+    case arrangeRecent(Int)
     case window(WindowAction)
 
-    static let arrangeCommands: [Command] = [.arrange, .nextLayout, .previousLayout, .rotate, .undo]
+    static let arrangeCommands: [Command] = [
+        .arrange, .arrangeRecent(2), .arrangeRecent(3), .nextLayout, .previousLayout, .rotate, .undo,
+    ]
     static let all: [Command] = arrangeCommands + WindowAction.allCases.map { .window($0) }
 
     var id: String { shortcutName.rawValue }
@@ -23,6 +27,7 @@ enum Command: Hashable, Identifiable, Sendable {
         case .previousLayout: "Previous Layout"
         case .rotate: "Rotate Windows"
         case .undo: "Undo Arrange"
+        case .arrangeRecent(let n): "Arrange \(n == 2 ? "Two" : n == 3 ? "Three" : "\(n)") Recent Windows"
         case .window(let action): action.title
         }
     }
@@ -35,6 +40,7 @@ enum Command: Hashable, Identifiable, Sendable {
         case .previousLayout: .init("previousLayout")
         case .rotate: .init("rotate")
         case .undo: .init("undoArrange")
+        case .arrangeRecent(let n): .init("arrangeRecent\(n)")
         case .window(let action): .init("window-\(action.rawValue)")
         }
     }
