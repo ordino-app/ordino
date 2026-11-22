@@ -10,7 +10,8 @@ public enum SnapBar {
         public let unit: Rect
     }
 
-    public static let groups: [[Cell]] = [
+    /// Layouts for a landscape display.
+    public static let landscape: [[Cell]] = [
         [cell(.leftHalf, 0, 0, 0.5, 1), cell(.rightHalf, 0.5, 0, 0.5, 1)],
         [
             cell(.firstThird, 0, 0, 1 / 3.0, 1), cell(.centerThird, 1 / 3.0, 0, 1 / 3.0, 1),
@@ -24,6 +25,29 @@ public enum SnapBar {
         ],
         [cell(.maximize, 0, 0, 1, 1)],
     ]
+
+    /// Layouts for a portrait display: halves top and bottom, thirds as rows (the engine turns thirds into
+    /// rows on portrait displays, so the cells are drawn transposed to match).
+    public static let portrait: [[Cell]] = landscape.map { cells in
+        cells.map { c in
+            let unit =
+                c.action == .topLeft || c.action == .topRight || c.action == .bottomLeft
+                    || c.action == .bottomRight || c.action == .maximize
+                ? c.unit : Rect(x: c.unit.y, y: c.unit.x, w: c.unit.h, h: c.unit.w)
+            let action: WindowAction =
+                switch c.action {
+                case .leftHalf: .topHalf
+                case .rightHalf: .bottomHalf
+                default: c.action
+                }
+            return Cell(action: action, unit: unit)
+        }
+    }
+
+    public static func groups(portrait isPortrait: Bool) -> [[Cell]] { isPortrait ? portrait : landscape }
+
+    /// Kept for callers that don't care about orientation (same count of groups either way).
+    public static var groups: [[Cell]] { landscape }
 
     // Bar geometry in points.
     public static let groupSize = Size(w: 72, h: 46)
@@ -63,8 +87,8 @@ public enum SnapBar {
     }
 
     /// The cell under the cursor (group index, cell), or nil. Gaps between groups count as nothing.
-    public static func hit(x: Double, y: Double, bar: Rect) -> (group: Int, cell: Cell)? {
-        for (i, cells) in groups.enumerated() {
+    public static func hit(x: Double, y: Double, bar: Rect, portrait: Bool = false) -> (group: Int, cell: Cell)? {
+        for (i, cells) in groups(portrait: portrait).enumerated() {
             let g = groupFrame(i, in: bar)
             guard g.contains(pointX: x, y: y) else { continue }
             // Nearest cell, so the hairline gaps inside a group never drop the target.

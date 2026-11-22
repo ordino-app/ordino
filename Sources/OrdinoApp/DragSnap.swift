@@ -168,8 +168,9 @@ final class DragSnapController {
         }
         if barArmed {
             let barFrame = SnapBar.frame(in: visible)
-            let hit = SnapBar.hit(x: px, y: py, bar: barFrame)
-            bar.show(quartzFrame: barFrame, hovered: hit.map { ($0.group, $0.cell.action) })
+            let portrait = visible.h > visible.w
+            let hit = SnapBar.hit(x: px, y: py, bar: barFrame, portrait: portrait)
+            bar.show(quartzFrame: barFrame, portrait: portrait, hovered: hit.map { ($0.group, $0.cell.action) })
             action = hit?.cell.action
         } else {
             bar.orderOut(nil)

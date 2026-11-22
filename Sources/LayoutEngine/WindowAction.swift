@@ -137,6 +137,9 @@ public enum WindowAction: String, CaseIterable, Codable, Sendable, Identifiable 
         var y0: Double
         var y1: Double
 
+        /// The same span with the axes swapped (columns become rows).
+        var transposed: Span { Span(y0, y1, x0, x1) }
+
         init(_ x0: Double, _ x1: Double, _ y0: Double, _ y1: Double) {
             self.x0 = x0
             self.x1 = x1
@@ -176,7 +179,9 @@ public struct WindowActionEngine: Sendable {
     ///   Halves cycle on repeat: 1/2 -> 2/3 -> 1/3 -> 1/2... Other actions ignore it.
     public func frame(for action: WindowAction, window: Rect, area: Rect, repeatCount: Int = 0) -> Rect? {
         let a = area.inset(by: outerPadding)
-        if let s = action.span(repeatCount: repeatCount) {
+        if var s = action.span(repeatCount: repeatCount) {
+            // On a portrait display thirds run top to bottom (as in Rectangle): columns would be too narrow.
+            if action.group == .thirds, a.h > a.w { s = s.transposed }
             return place(s, in: a)
         }
         switch action {

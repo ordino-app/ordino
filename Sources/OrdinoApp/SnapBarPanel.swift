@@ -9,6 +9,7 @@ import SwiftUI
 final class SnapBarModel {
     var hoveredGroup: Int?
     var hoveredAction: WindowAction?
+    var portrait = false
 }
 
 /// The bar of layouts shown at the top of the screen while dragging a window (see `SnapBar`).
@@ -29,7 +30,8 @@ final class SnapBarPanel: NSPanel {
     }
 
     /// Shows the bar at `bar` (Quartz coordinates) with the hovered cell highlighted.
-    func show(quartzFrame bar: Rect, hovered: (group: Int, action: WindowAction)?) {
+    func show(quartzFrame bar: Rect, portrait: Bool, hovered: (group: Int, action: WindowAction)?) {
+        model.portrait = portrait
         model.hoveredGroup = hovered?.group
         model.hoveredAction = hovered?.action
         let frame = NSRect(x: bar.x, y: SnapPreviewPanel.primaryHeight - bar.y - bar.h, width: bar.w, height: bar.h)
@@ -43,7 +45,7 @@ private struct SnapBarView: View {
 
     var body: some View {
         HStack(spacing: SnapBar.gap) {
-            ForEach(Array(SnapBar.groups.enumerated()), id: \.offset) { index, cells in
+            ForEach(Array(SnapBar.groups(portrait: model.portrait).enumerated()), id: \.offset) { index, cells in
                 GroupView(cells: cells, hovered: model.hoveredGroup == index ? model.hoveredAction : nil)
                     .frame(width: SnapBar.groupSize.w, height: SnapBar.groupSize.h)
             }

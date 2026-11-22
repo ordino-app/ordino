@@ -36,4 +36,21 @@ import Testing
         #expect(SnapBar.isShown(cursorY: 100, visible: visible))
         #expect(!SnapBar.isShown(cursorY: 400, visible: visible))
     }
+
+    @Test func portraitDisplaysOfferTopAndBottomHalves() {
+        let bar = SnapBar.frame(in: Rect(x: 0, y: 25, w: 1080, h: 1895))
+        let halves = SnapBar.groupFrame(0, in: bar)
+        #expect(SnapBar.hit(x: halves.midX, y: halves.y + 5, bar: bar, portrait: true)?.cell.action == .topHalf)
+        #expect(SnapBar.hit(x: halves.midX, y: halves.maxY - 5, bar: bar, portrait: true)?.cell.action == .bottomHalf)
+        let thirds = SnapBar.groupFrame(1, in: bar)
+        #expect(SnapBar.hit(x: thirds.midX, y: thirds.maxY - 3, bar: bar, portrait: true)?.cell.action == .lastThird)
+    }
+
+    @Test func thirdsAreRowsOnPortraitDisplays() {
+        let engine = WindowActionEngine()
+        let tall = Rect(x: 0, y: 0, w: 1080, h: 1920)
+        let f = engine.frame(for: .firstThird, window: .zero, area: tall)
+        #expect(f?.w == 1080)
+        #expect((f?.h ?? 0) < 700)
+    }
 }

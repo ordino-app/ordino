@@ -117,12 +117,18 @@ struct WindowActionEngineTests {
                 expectTiles(tb, area: area, gapArea: gap * area.w)
                 #expect(abs(tb[1].minY - tb[0].maxY - gap) < eps)
 
+                // Thirds are columns on landscape displays and rows on portrait ones.
+                let portrait = area.h > area.w
+                let across = portrait ? area.w : area.h
                 let thirds = frames([.firstThird, .centerThird, .lastThird], e, area)
-                expectTiles(thirds, area: area, gapArea: 2 * gap * area.h)
-                for i in 1..<3 { #expect(abs(thirds[i].minX - thirds[i - 1].maxX - gap) < eps) }
+                expectTiles(thirds, area: area, gapArea: 2 * gap * across)
+                for i in 1..<3 {
+                    let step = portrait ? thirds[i].minY - thirds[i - 1].maxY : thirds[i].minX - thirds[i - 1].maxX
+                    #expect(abs(step - gap) < eps)
+                }
 
-                expectTiles(frames([.firstTwoThirds, .lastThird], e, area), area: area, gapArea: gap * area.h)
-                expectTiles(frames([.firstThird, .lastTwoThirds], e, area), area: area, gapArea: gap * area.h)
+                expectTiles(frames([.firstTwoThirds, .lastThird], e, area), area: area, gapArea: gap * across)
+                expectTiles(frames([.firstThird, .lastTwoThirds], e, area), area: area, gapArea: gap * across)
 
                 let fourths = frames([.firstFourth, .secondFourth, .thirdFourth, .lastFourth], e, area)
                 expectTiles(fourths, area: area, gapArea: 3 * gap * area.h)
@@ -157,7 +163,11 @@ struct WindowActionEngineTests {
             #expect(
                 ch.isApproximately(Rect(x: area.x + area.w / 4, y: area.y, w: area.w / 2, h: area.h), tolerance: eps))
             let c2 = e.frame(for: .centerTwoThirds, window: w, area: area)!
-            #expect(abs(c2.w - area.w * 2 / 3) < eps && abs(c2.midX - area.midX) < eps)
+            if area.h > area.w {
+                #expect(abs(c2.h - area.h * 2 / 3) < eps && abs(c2.midY - area.midY) < eps)
+            } else {
+                #expect(abs(c2.w - area.w * 2 / 3) < eps && abs(c2.midX - area.midX) < eps)
+            }
             #expect(e.frame(for: .maximize, window: w, area: area)!.isApproximately(area, tolerance: eps))
             let am = e.frame(for: .almostMaximize, window: w, area: area)!
             #expect(abs(am.w - area.w * 0.9) < eps && abs(am.h - area.h * 0.9) < eps)
