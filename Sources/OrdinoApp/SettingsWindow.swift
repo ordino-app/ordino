@@ -71,6 +71,10 @@ final class SettingsNavigation {
 /// becomes a regular app (Dock icon, ⌘-Tab) and goes back to accessory on close.
 @MainActor
 final class SettingsWindowController: NSObject, NSWindowDelegate {
+    static let defaultSize = NSSize(width: 760, height: 600)
+    static let minSize = NSSize(width: 700, height: 480)
+    static let maxSize = NSSize(width: 900, height: 1100)
+
     private unowned let app: AppDelegate
     private var window: NSWindow?
     private let navigation = SettingsNavigation()
@@ -110,11 +114,20 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
         window.toolbarStyle = .unified
-        window.setContentSize(NSSize(width: 760, height: 560))
-        window.contentMinSize = NSSize(width: 680, height: 460)
+        window.setContentSize(Self.defaultSize)
+        // Like other Settings windows: resizable within a range the panes are designed for, so rows never
+        // stretch into a wide empty strip or squeeze their controls off the edge.
+        window.contentMinSize = Self.minSize
+        window.contentMaxSize = Self.maxSize
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.setFrameAutosaveName("ordinoSettings")
+        // A size saved before these limits existed (e.g. stretched very wide) is pulled back into range.
+        let saved = window.contentRect(forFrameRect: window.frame).size
+        let clamped = NSSize(
+            width: min(max(saved.width, Self.minSize.width), Self.maxSize.width),
+            height: min(max(saved.height, Self.minSize.height), Self.maxSize.height))
+        if clamped != saved { window.setContentSize(clamped) }
         return window
     }
 }
