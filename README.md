@@ -11,6 +11,14 @@
 
 > Status: **early prototype**. Layout engine, window layer and a first menu bar app work; signing, auto-update and settings come next.
 
+## Install
+
+```bash
+brew install --cask ordino-app/tap/ordino
+```
+
+Or download the ZIP from the [website](https://ordino-app.github.io/ordino/). ordino is not notarized: on first launch click Done, then System Settings › Privacy & Security › Open Anyway, and allow it under Accessibility. It updates itself.
+
 ## Use the app
 
 ```bash

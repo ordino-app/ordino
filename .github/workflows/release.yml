@@ -44,4 +44,6 @@ jobs:
           # Public repo that hosts the Sparkle appcast and update archives. Pushed
           # with the deploy key in ~/.config/ordino on the runner Mac.
           UPDATES_REPO: ${{ vars.UPDATES_REPO }}
+          # Homebrew tap whose cask is bumped after each release (own deploy key).
+          TAP_REPO: ${{ vars.TAP_REPO }}
         run: scripts/release.sh "$TAG"
