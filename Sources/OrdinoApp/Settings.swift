@@ -4,6 +4,34 @@ import Observation
 import ServiceManagement
 
 /// Which display "Arrange" works on.
+/// Optional groups in the menu bar menu (Settings › General › Menu). The arrange card, Arrange Windows,
+/// Undo, Settings and Quit are always there.
+enum MenuSection: String, CaseIterable, Identifiable, Sendable {
+    case layoutOptions, windowActions, workspaces, customLayouts, appOptions
+
+    var id: String { rawValue }
+    static let defaults: Set<MenuSection> = [.windowActions, .workspaces, .customLayouts, .appOptions]
+
+    var title: String {
+        switch self {
+        case .layoutOptions: "Layout, primary window and rotate"
+        case .windowActions: "Move Window (halves, corners, thirds…)"
+        case .workspaces: "Workspaces"
+        case .customLayouts: "Custom layouts"
+        case .appOptions: "Options for the active app"
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .layoutOptions: "rectangle.3.group"
+        case .windowActions: "macwindow"
+        case .workspaces: "square.grid.2x2"
+        case .customLayouts: "rectangle.split.3x1"
+        case .appOptions: "app.badge"
+        }
+    }
+}
+
 /// How the menu bar icon looks.
 enum MenuBarIconStyle: String, CaseIterable, Identifiable, Sendable {
     /// One colour, drawn by macOS like other menu bar icons.
@@ -83,6 +111,7 @@ final class Settings {
     }
     var arrangeTarget: ArrangeTarget { didSet { save(arrangeTarget.rawValue, "arrangeTarget") } }
     var menuBarIconStyle: MenuBarIconStyle { didSet { save(menuBarIconStyle.rawValue, "menuBarIconStyle") } }
+    var menuSections: Set<MenuSection> { didSet { save(menuSections.map(\.rawValue).sorted(), "menuSections") } }
 
     // MARK: Feedback and appearance
 
@@ -134,6 +163,9 @@ final class Settings {
             defaults.string(forKey: "arrangeTarget").flatMap(ArrangeTarget.init(rawValue:)) ?? .displayUnderMouse
         menuBarIconStyle =
             defaults.string(forKey: "menuBarIconStyle").flatMap(MenuBarIconStyle.init(rawValue:)) ?? .monochrome
+        menuSections =
+            (defaults.stringArray(forKey: "menuSections")).map { Set($0.compactMap(MenuSection.init(rawValue:))) }
+            ?? MenuSection.defaults
         showArrangeHUD = defaults.object(forKey: "showArrangeHUD") as? Bool ?? true
         showActionHUD = defaults.object(forKey: "showActionHUD") as? Bool ?? false
         rearrangeOnDisplayChange = defaults.object(forKey: "rearrangeOnDisplayChange") as? Bool ?? true

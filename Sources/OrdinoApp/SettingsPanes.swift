@@ -63,6 +63,28 @@ struct GeneralPane: View {
             }
 
             Section {
+                ForEach(MenuSection.allCases) { section in
+                    ToggleRow(
+                        symbol: section.symbol, title: section.title, help: nil,
+                        isOn: Binding(
+                            get: { settings.menuSections.contains(section) },
+                            set: { on in
+                                if on {
+                                    settings.menuSections.insert(section)
+                                } else {
+                                    settings.menuSections.remove(section)
+                                }
+                            }))
+                }
+            } header: {
+                SectionTitle("Menu", symbol: "filemenu.and.selection")
+            } footer: {
+                Footnote(
+                    "The layout preview, Arrange Windows and Undo are always in the menu. Everything here also works with shortcuts when it's hidden."
+                )
+            }
+
+            Section {
                 SettingRow(
                     symbol: "display", title: "Display to arrange",
                     help:
