@@ -23,6 +23,11 @@ cleanup() {
   [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null || true
   osascript -e "tell application id \"$TEST_ID\" to quit" >/dev/null 2>&1 || true
   defaults delete "$TEST_ID" >/dev/null 2>&1 || true
+  # Forget the temporary copies, or Launch Services keeps them and System Settings may show
+  # a stale entry (no icon) for ordino.
+  local lsregister=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+  find "$WORK" -maxdepth 3 -name '*.app' -prune -exec "$lsregister" -u {} \; 2>/dev/null || true
+  rm -rf "$WORK"
 }
 trap cleanup EXIT
 
