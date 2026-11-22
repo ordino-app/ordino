@@ -4,7 +4,8 @@ import LayoutEngine
 import WindowKit
 
 /// Drag a window to a screen edge to snap it (like Windows): left/right edge = half, top edge = maximize,
-/// the very corners = quarters. A translucent preview shows the target while dragging; releasing the mouse
+/// the very corners = quarters. Near the top a bar of layouts slides in (halves, thirds, 2/3, quarters,
+/// full): each cell is a target area. A translucent preview shows the target while dragging; releasing the mouse
 /// there places the window on the display under the cursor. Hold ⌘ to drag freely. Dragging a window that
 /// ordino placed gives it its earlier size back, so it doesn't stay a huge half while you move it.
 @MainActor
@@ -25,6 +26,12 @@ final class DragSnapController {
     private var lastCheck: ContinuousClock.Instant?
     private var target: WindowAction?
     private lazy var preview = SnapPreviewPanel()
+    private lazy var bar = SnapBarPanel()
+    /// Cursor y when the window started moving: a window grabbed near the top shows the bar only once
+    /// the cursor is pushed up to the menu bar, so sliding it sideways doesn't pop the bar.
+    private var moveStartY: Double?
+    /// Once the bar appeared in this drag it stays while the cursor is near the top.
+    private var barArmed = false
     private let mover = WindowMover()
 
     init(
@@ -122,6 +129,7 @@ final class DragSnapController {
         guard moved else { return }
         isMoving = true
         restoreFrame = d.origin
+        moveStartY = Self.mouseInQuartz().1
         log("move \(window.appName)")
         unsnapIfPlaced(window, startFrame: d.origin)
     }
@@ -141,16 +149,42 @@ final class DragSnapController {
         Task { [mover] in _ = await mover.apply([window.info.id: frame], to: [window]) }
     }
 
-    /// Picks the snap zone under the cursor and shows its preview.
+    /// Picks the target under the cursor and shows its preview: a cell of the snap bar near the top of the
+    /// screen, else an outer edge or corner.
     private func updateTarget() {
         let (px, py) = Self.mouseInQuartz()
         let displays = Displays.all()
-        guard let display = displays.first(where: { $0.frame.contains(pointX: px, y: py) }),
-            let action = SnapZone.action(
-                x: px, y: py, in: display.frame, others: displays.filter { $0.id != display.id }.map(\.frame)),
-            let frame = settings.windowActionEngine.frame(
-                for: action, window: drag?.origin ?? .zero, area: display.visibleFrame)
-        else { return hidePreview() }
+        guard let display = displays.first(where: { $0.frame.contains(pointX: px, y: py) }) else {
+            return hidePreview()
+        }
+        let visible = display.visibleFrame
+        var action: WindowAction?
+
+        let startedNearTop = (moveStartY ?? .infinity) <= visible.y + SnapBar.reach
+        if !SnapBar.isShown(cursorY: py, visible: visible) {
+            barArmed = false
+        } else if !startedNearTop || py <= visible.y + 2 {
+            barArmed = true
+        }
+        if barArmed {
+            let barFrame = SnapBar.frame(in: visible)
+            let hit = SnapBar.hit(x: px, y: py, bar: barFrame)
+            bar.show(quartzFrame: barFrame, hovered: hit.map { ($0.group, $0.cell.action) })
+            action = hit?.cell.action
+        } else {
+            bar.orderOut(nil)
+        }
+        if action == nil {
+            action = SnapZone.action(
+                x: px, y: py, in: display.frame, others: displays.filter { $0.id != display.id }.map(\.frame))
+        }
+        guard let action,
+            let frame = settings.windowActionEngine.frame(for: action, window: drag?.origin ?? .zero, area: visible)
+        else {
+            target = nil
+            preview.orderOut(nil)
+            return
+        }
         target = action
         preview.show(quartzFrame: frame)
     }
@@ -158,6 +192,7 @@ final class DragSnapController {
     private func hidePreview() {
         target = nil
         preview.orderOut(nil)
+        bar.orderOut(nil)
     }
 
     private func reset() {
@@ -165,6 +200,8 @@ final class DragSnapController {
         isMoving = false
         drag = nil
         restoreFrame = nil
+        moveStartY = nil
+        barArmed = false
         dragStart = nil
         lastCheck = nil
         hidePreview()
