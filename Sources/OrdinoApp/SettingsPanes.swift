@@ -690,6 +690,9 @@ struct AboutPane: View {
                 LabeledContent("Sparkle", value: "MIT License")
                 LabeledContent("KeyboardShortcuts", value: "MIT License")
                 LabeledContent("ordino", value: "MIT License · free")
+                if let licenses = Bundle.main.url(forResource: "Licenses", withExtension: "txt") {
+                    Button("View Licenses…") { NSWorkspace.shared.open(licenses) }
+                }
             } header: {
                 SectionTitle("Acknowledgements", symbol: "heart")
             }

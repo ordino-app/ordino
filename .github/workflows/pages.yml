@@ -1,6 +1,6 @@
 name: Website
 
-# Deploys web/ to GitHub Pages (https://xsugra.github.io/ordino/). The repo is
+# Deploys web/ to GitHub Pages (https://ordino-app.github.io/ordino/). The repo is
 # private; the site is public. Runs on a small GitHub-hosted Linux runner: the
 # official Pages artifact action needs GNU tar, which the Mac runner doesn't
 # have, and a deploy takes well under a minute of the plan's included minutes.

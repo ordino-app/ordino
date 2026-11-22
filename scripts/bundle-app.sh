@@ -42,7 +42,7 @@ build_number() {
 }
 BUILD_NUMBER="${BUILD_NUMBER:-$(build_number "$VERSION")}"
 # Where the app looks for updates. Must be a public HTTPS URL (see docs/AUTOMATION.md).
-FEED_URL="${FEED_URL:-https://xsugra.github.io/ordino-updates/appcast.xml}"
+FEED_URL="${FEED_URL:-https://ordino-app.github.io/ordino-updates/appcast.xml}"
 PUBLIC_ED_KEY="${PUBLIC_ED_KEY:-$(cat "$ROOT/Config/SparklePublicKey.txt")}"
 APP="${APP:-$ROOT/build/ordino.app}"
 
@@ -72,6 +72,19 @@ cp -R "$ROOT/Resources/." "$APP/Contents/Resources/"
 for bundle in "$BIN_DIR"/*.bundle; do
   [ -d "$bundle" ] && ditto "$bundle" "$APP/Contents/Resources/$(basename "$bundle")"
 done
+
+# Licence texts: ordino's own, and every SwiftPM dependency's in full (MIT requires the
+# notice to travel with the binary). Shown from Settings > About > Licenses.
+LICENSES="$APP/Contents/Resources/Licenses.txt"
+{
+  echo "ordino"; echo "======"; echo; cat "$ROOT/LICENSE"; echo
+  for dir in "$ROOT"/.build/checkouts/*/; do
+    lic=$(find "$dir" -maxdepth 1 -iname 'licen[cs]e*' | head -1)
+    [ -n "$lic" ] || { echo "error: no licence file in $dir" >&2; exit 1; }
+    name=$(basename "$dir"); echo; echo "$name"; printf '%*s\n' "${#name}" '' | tr ' ' '='; echo
+    cat "$lic"; echo
+  done
+} > "$LICENSES"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -91,7 +104,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
   <key>NSPrincipalClass</key><string>NSApplication</string>
   <key>NSHighResolutionCapable</key><true/>
-  <key>NSHumanReadableCopyright</key><string>MIT License. The ordino authors.</string>
+  <key>NSHumanReadableCopyright</key><string>© 2026 Samuel Šugra. MIT License.</string>
   <key>SUFeedURL</key><string>$FEED_URL</string>
   <key>SUPublicEDKey</key><string>$PUBLIC_ED_KEY</string>
   <key>SUEnableAutomaticChecks</key><true/>

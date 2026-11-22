@@ -106,4 +106,4 @@ ordino uses only the Accessibility permission. It never records the screen, and 
 
 MIT, see [LICENSE](LICENSE).
 
-Website: https://xsugra.github.io/ordino/ (source in [web/](web/)). Brand assets and logo guidelines: [brand/](brand/README.md).
+Website: https://ordino-app.github.io/ordino/ (source in [web/](web/)). Brand assets and logo guidelines: [brand/](brand/README.md).
