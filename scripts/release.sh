@@ -136,3 +136,26 @@ else
   gh release create "$TAG" "$ZIP" "$DIST/SHA256SUMS" \
     --verify-tag --title "ordino $VERSION" --generate-notes ${PRERELEASE[@]+"${PRERELEASE[@]}"}
 fi
+
+# Homebrew tap: bump the cask's version and sha256 (TAP_REPO, e.g. ordino-app/homebrew-tap,
+# pushed with its own deploy key, because GitHub allows one repo per deploy key).
+TAP_REPO="${TAP_REPO:-}"
+TAP_KEY="${TAP_DEPLOY_KEY:-$HOME/.config/ordino/tap_deploy_key}"
+if [ -n "$TAP_REPO" ] && [ -n "$UPDATES_REPO" ]; then
+  log "Updating Homebrew cask in $TAP_REPO"
+  [ -f "$TAP_KEY" ] || { echo "Tap deploy key not found at $TAP_KEY" >&2; exit 1; }
+  tap_work="$(mktemp -d)"
+  tap_ssh="ssh -i $TAP_KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+  GIT_SSH_COMMAND="$tap_ssh" git clone -q --depth 1 "git@github.com:$TAP_REPO.git" "$tap_work"
+  sha="$(shasum -a 256 "$ZIP" | awk '{print $1}')"
+  sed -i '' -E -e "s/^  version \".*\"/  version \"$VERSION\"/" -e "s/^  sha256 \".*\"/  sha256 \"$sha\"/" "$tap_work/Casks/ordino.rb"
+  if git -C "$tap_work" diff --quiet; then
+    log "Cask already at $VERSION"
+  else
+    git -C "$tap_work" -c user.name="ordino release" -c user.email="212017430+xsugra@users.noreply.github.com" \
+      commit -qam "ordino $VERSION"
+    GIT_SSH_COMMAND="$tap_ssh" git -C "$tap_work" push -q
+    log "Cask updated: brew upgrade --cask ordino-app/tap/ordino"
+  fi
+  rm -rf "$tap_work"
+fi
