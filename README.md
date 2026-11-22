@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/logo-horizontal-dark.svg">
+    <img src="brand/logo-horizontal.svg" alt="ordino" width="320">
+  </picture>
+</p>
+
 # ordino
 
 **Every window, in its place.** ordino is a free, open-source macOS menu bar app that arranges *all* windows on a display with one keystroke. With 4 windows you get a 2x2 grid, with 3 a master + stack, and so on. It adapts to the window count and the display shape (laptop, ultrawide, portrait), respects minimum window sizes, and can be undone.
@@ -98,3 +105,5 @@ ordino uses only the Accessibility permission. It never records the screen, and 
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+Brand assets and logo guidelines: [brand/](brand/README.md).
