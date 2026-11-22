@@ -26,8 +26,11 @@ Status: `[x]` done · `[~]` in progress · `[ ]` not started. Keep this file cur
 - [x] **5. Drag to the screen edge to snap** (like Windows / Rectangle). `DragSnap.swift` + `SnapZone` (tested):
   left/right edge = half, top = maximize, corners = quarters, bottom edge = nothing (Dock). Translucent preview
   panel while dragging, ⌘ disables it, ignored apps skipped, off while another window manager runs.
-  Settings › General › Displays and dragging (on by default). Not yet tried by hand on a real drag.
-  - Ideas: thirds when dragging along the top edge, a short delay before the preview appears.
+  Settings › General › Displays and dragging (on by default). 
+  - Also: a Windows 11-style snap bar near the top (halves, thirds, 2/3+1/3, 1/3+2/3, quarters, full), each cell a
+    target area; portrait displays get top/bottom halves and row thirds (thirds are rows on portrait everywhere).
+    Only outer screen edges snap (edges shared between displays don't), unsnap restores size, defers to macOS tiling.
+    Tested by hand by the owner on 3 monitors incl. portrait.
 
 ## Later
 
