@@ -22,10 +22,11 @@ concurrency:
 jobs:
   release:
     name: Build, sign, publish
+    # Only the real repo, only from a v* tag: forks and branches never reach the Mac.
+    if: github.repository == 'ordino-app/ordino' && startsWith(github.ref, 'refs/tags/v')
     runs-on: [self-hosted, macOS, ARM64, ordino]
-    # When the repo goes public (or on GitHub Pro), add a protected environment:
-    #   environment: release
-    # scripts/setup-github.sh creates it, limited to v* tags.
+    # Protected environment, limited to v* tags (scripts/setup-github.sh).
+    environment: release
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
