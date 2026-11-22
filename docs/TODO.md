@@ -23,12 +23,14 @@ Status: `[x]` done · `[~]` in progress · `[ ]` not started. Keep this file cur
     Ruled apps are excluded from layouts and placed after each arrange (`AppDelegate.applyAppRules`).
   - Still open: the layout still uses the full area (it may overlap a ruled window); subtract ruled rects.
   - Later: apply the rule when the app opens a new window (AXObserver `kAXWindowCreatedNotification`).
-- [ ] **5. Drag to the screen edge to snap** (like Windows / Rectangle).
-  - `NSEvent.addGlobalMonitorForEvents([.leftMouseDragged, .leftMouseUp])`; while dragging, confirm the focused
-    window is moving (AX position changes) and the cursor is within ~5 px of an edge or corner.
-  - Show a translucent preview `NSPanel` (borderless, `ignoresMouseEvents`, level `.floating`) for the target:
-    left/right half at the sides, maximize at the top, quarters at the corners. On mouse-up apply that `WindowAction`.
-  - Settings toggle (off by default at first), respect Ignored apps, skip while ⌘ is held.
+- [x] **5. Drag to the screen edge to snap** (like Windows / Rectangle). `DragSnap.swift` + `SnapZone` (tested):
+  left/right edge = half, top = maximize, corners = quarters, bottom edge = nothing (Dock). Translucent preview
+  panel while dragging, ⌘ disables it, ignored apps skipped, off while another window manager runs.
+  Settings › General › Displays and dragging (on by default). 
+  - Also: a Windows 11-style snap bar near the top (halves, thirds, 2/3+1/3, 1/3+2/3, quarters, full), each cell a
+    target area; portrait displays get top/bottom halves and row thirds (thirds are rows on portrait everywhere).
+    Only outer screen edges snap (edges shared between displays don't), unsnap restores size, defers to macOS tiling.
+    Tested by hand by the owner on 3 monitors incl. portrait.
 
 ## Later
 
@@ -53,4 +55,4 @@ Status: `[x]` done · `[~]` in progress · `[ ]` not started. Keep this file cur
 ## Progress log
 
 - 2026-11-22: roadmap written; item 3 confirmed already shipped. Items 2 and 4 (first version) landed on
-  `feat/multi-display-rules`. Items 1 and 5 not started: next up is 5 (drag to snap), then 1 (workspaces).
+  `feat/multi-display-rules`. Items 1 and 5 not started: 5 followed the same day (PR #7). Next up: 1 (workspaces).

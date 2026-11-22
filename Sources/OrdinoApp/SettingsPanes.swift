@@ -86,8 +86,26 @@ struct GeneralPane: View {
                     help:
                         "After you connect or disconnect a monitor, ordino puts the windows on each display you arranged before back into that display's last layout.",
                     isOn: $settings.rearrangeOnDisplayChange)
+                ToggleRow(
+                    symbol: "hand.point.up.left", title: "Snap windows dragged to the screen edge",
+                    help:
+                        "Drag a window to the left or right edge for a half, to the top for full screen, or into a corner for a quarter. Hold ⌘ to drag without snapping. Off while another window manager is running.",
+                    isOn: $settings.snapOnDrag)
+                if settings.snapOnDrag && DragSnapController.systemTilingEnabled {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(
+                            "macOS tiles windows dragged to the screen edge itself, so ordino leaves those drags alone. To use ordino's snapping, turn off \u{201C}Drag windows to screen edges to tile\u{201D} and \u{201C}Drag windows to menu bar to fill screen\u{201D}."
+                        )
+                        .font(.callout).foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Open Desktop & Dock…") {
+                            NSWorkspace.shared.open(
+                                URL(string: "x-apple.systempreferences:com.apple.Desktop-Settings.extension")!)
+                        }
+                    }
+                }
             } header: {
-                SectionTitle("Displays", symbol: "display")
+                SectionTitle("Displays and dragging", symbol: "display")
             }
 
             Section {

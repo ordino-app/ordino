@@ -34,6 +34,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updater.onChange = { [weak self] in self?.menu?.refresh() }
         observeSettings()
         observeDisplayChanges()
+        dragSnap = DragSnapController(settings: settings, windowActions: windowActions) { [weak self] outcome in
+            if case .done(let action, let appName) = outcome, self?.settings.showActionHUD == true {
+                self?.hud.show("\(action.title) · \(appName)")
+            }
+        }
+        syncDragSnap()
         #if DEBUG
             DebugSnapshots.runIfRequested(app: self)
             if UserDefaults.standard.string(forKey: "ordinoSnapshotDir") != nil { return }
@@ -93,6 +99,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             settings.preferredLayouts = coordinator.preferredLayouts
         }
+    }
+
+    private var dragSnap: DragSnapController?
+
+    /// Drag-to-snap runs only when enabled and no other window manager (Rectangle & co.) is running,
+    /// so two apps never fight over the same drag.
+    private func syncDragSnap() {
+        if settings.snapOnDrag && conflictingWindowManager == nil { dragSnap?.start() } else { dragSnap?.stop() }
     }
 
     private func performWindowAction(_ action: WindowAction) {
@@ -230,6 +244,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         backend.excludedBundleIDs = Set(settings.ignoredApps).union(settings.appRules.keys)
         coordinator.preferredPrimaryApps = settings.primaryApps
         menu?.setVisible(settings.showMenuBarIcon)
+        syncDragSnap()
     }
 
     /// Re-syncs whenever an app-level setting changes.
@@ -237,6 +252,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         withObservationTracking {
             _ = settings.ignoredApps
             _ = settings.appRules
+            _ = settings.snapOnDrag
             _ = settings.primaryApps
             _ = settings.showMenuBarIcon
         } onChange: { [weak self] in

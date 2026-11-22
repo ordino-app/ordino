@@ -29,7 +29,12 @@ final class WindowActionController {
         self.settings = settings
     }
 
-    func perform(_ action: WindowAction) async -> Outcome {
+    /// - Parameters:
+    ///   - onDisplayUnderMouse: place on the display under the cursor (drag-to-snap), not the window's display.
+    ///   - originalFrame: the frame Restore goes back to, when the caller knows better than the current frame
+    ///     (drag-to-snap passes the frame from before the drag).
+    func perform(_ action: WindowAction, onDisplayUnderMouse: Bool = false, originalFrame: Rect? = nil) async -> Outcome
+    {
         guard let window = WindowDiscovery.focusedWindow() else { return .noWindow }
         if let bundleID = window.bundleID, settings.ignoredApps.contains(bundleID) {
             return .ignored(appName: window.appName)
@@ -63,7 +68,8 @@ final class WindowActionController {
             if !window.info.isResizable, action == .larger || action == .smaller {
                 return .notResizable(appName: window.appName)
             }
-            guard let display = Displays.containing(current) else { return .noWindow }
+            guard let display = onDisplayUnderMouse ? Displays.underMouse() : Displays.containing(current)
+            else { return .noWindow }
             let repeats = repeatCount(for: action, window: id, frame: current)
             guard
                 let frame = settings.windowActionEngine.frame(
@@ -72,7 +78,7 @@ final class WindowActionController {
             target = frame
         }
 
-        if action != .restore, originalFrames[id] == nil { originalFrames[id] = current }
+        if action != .restore, originalFrames[id] == nil { originalFrames[id] = originalFrame ?? current }
         let outcomes = await mover.apply([id: target], to: [window])
         var actual = outcomes.first?.actual ?? target
 
@@ -99,6 +105,19 @@ final class WindowActionController {
             lastApplied[id] = actual
         }
         return .done(action, appName: window.appName)
+    }
+
+    /// The size a window had before ordino placed it, if `frame` is still where ordino put it
+    /// (drag-to-snap restores it when a snapped window is dragged away).
+    func originalFrameIfPlaced(_ id: WindowID, frame: Rect) -> Rect? {
+        guard let applied = lastApplied[id], applied.isApproximately(frame, tolerance: 2) else { return nil }
+        return originalFrames[id]
+    }
+
+    /// Forgets that ordino placed a window (it was dragged away and got its own size back).
+    func forgetPlacement(_ id: WindowID) {
+        originalFrames[id] = nil
+        lastApplied[id] = nil
     }
 
     private func repeatCount(for action: WindowAction, window: WindowID, frame: Rect) -> Int {
