@@ -324,6 +324,17 @@
   @media (max-width: 379px) { html #install .panel { --p-h: 250px; } }
   @media (max-width: 479px), (min-width: 1024px) and (max-width: 1279px) { .sheet__row { flex-wrap: wrap; } }
 
+  /* a tall window (960 and up, e.g. a portrait or half-width window on a big display): the close and the
+     statement are as tall as what they hold, not a whole screen, which left hundreds of empty pixels
+     between the heading and the name and under the keys. Laptop and phone screens keep one screen each. */
+  @media (min-height: 960px) {
+    html footer.closing { height: auto; min-height: 0; padding-top: var(--s-9); }
+    html footer.closing > .wrap { height: auto; }
+    html footer.closing .close__word { margin-top: var(--s-7); }
+    html main > #statement { height: auto; min-height: 0; }
+    html main > #statement > .wrap { height: auto; }
+  }
+
   /* a short laptop screen (1280 and up, under 900 tall): the FAQ and the close grow with what they hold */
   @media (min-width: 1280px) and (max-height: 860px) {
     #faq, footer.closing { height: auto; min-height: calc(var(--h, 1) * 100svh); }
