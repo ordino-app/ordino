@@ -13,6 +13,27 @@ struct CustomLayout: Codable, Identifiable, Equatable {
 
     var shortcutName: KeyboardShortcuts.Name { .init("customLayout-\(id.uuidString)") }
     var cells: Int { columns * rows }
+
+    /// The name ordino gives a grid of this shape ("3 Columns", "2 Rows", "3 × 2 Grid").
+    static func autoName(columns: Int, rows: Int) -> String {
+        switch (columns, rows) {
+        case (1, 1): "Full Screen"
+        case (_, 1): "\(columns) Columns"
+        case (1, _): "\(rows) Rows"
+        default: "\(columns) × \(rows) Grid"
+        }
+    }
+
+    /// Ready-made shapes offered in Settings.
+    static let presets: [(columns: Int, rows: Int)] = [(2, 1), (3, 1), (4, 1), (2, 2), (3, 2), (1, 2)]
+
+    /// Changes the shape; a name that was still the automatic one follows it.
+    mutating func reshape(columns: Int, rows: Int) {
+        let wasAuto = name == Self.autoName(columns: self.columns, rows: self.rows)
+        self.columns = columns
+        self.rows = rows
+        if wasAuto { name = Self.autoName(columns: columns, rows: rows) }
+    }
 }
 
 /// Puts the most recently used windows of a display into a custom grid; windows beyond the grid's cells
@@ -51,8 +72,9 @@ final class CustomLayoutController {
         }
     }
 
-    func add() {
-        settings.customLayouts.append(CustomLayout(name: "3 Columns", columns: 3, rows: 1))
+    func add(columns: Int, rows: Int) {
+        settings.customLayouts.append(
+            CustomLayout(name: CustomLayout.autoName(columns: columns, rows: rows), columns: columns, rows: rows))
     }
 
     func delete(_ id: UUID) {

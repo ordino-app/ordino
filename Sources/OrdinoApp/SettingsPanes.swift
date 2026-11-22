@@ -237,43 +237,71 @@ struct LayoutsPane: View {
             .listRowBackground(Color.clear)
 
             Section {
-                if settings.customLayouts.isEmpty {
-                    Text("No custom layouts yet.").foregroundStyle(.secondary)
-                }
-                ForEach($settings.customLayouts) { $layout in
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            TextField("", text: $layout.name, prompt: Text("Name"))
-                                .labelsHidden()
-                                .textFieldStyle(.plain)
-                                .font(.body.weight(.medium))
-                            DeleteButton(label: "Delete \(layout.name)") { app.customLayouts.delete(layout.id) }
-                        }
-                        HStack(spacing: 16) {
-                            CompactStepper(
-                                text: "\(layout.columns) column\(layout.columns == 1 ? "" : "s")",
-                                value: $layout.columns, range: 1...6)
-                            CompactStepper(
-                                text: "\(layout.rows) row\(layout.rows == 1 ? "" : "s")", value: $layout.rows,
-                                range: 1...4)
-                        }
-                        HStack(spacing: 10) {
-                            KeyboardShortcuts.Recorder(for: layout.shortcutName)
-                            Button("Apply") { app.applyCustomLayout(layout.id) }
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Add a layout").font(.callout).foregroundStyle(.secondary)
+                    // Wraps onto more lines in a narrow window.
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: 70), spacing: 10)], alignment: .leading, spacing: 10
+                    ) {
+                        ForEach(Array(CustomLayout.presets.enumerated()), id: \.offset) { _, p in
+                            Button {
+                                app.customLayouts.add(columns: p.columns, rows: p.rows)
+                                app.registerCustomLayoutShortcuts()
+                            } label: {
+                                VStack(spacing: 4) {
+                                    GridPreview(columns: p.columns, rows: p.rows).frame(width: 56, height: 36)
+                                    Text(CustomLayout.autoName(columns: p.columns, rows: p.rows))
+                                        .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                                }
+                                .frame(width: 70)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .help("Add \(CustomLayout.autoName(columns: p.columns, rows: p.rows))")
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 2)
                 }
-                Button("Add Custom Layout") {
-                    app.customLayouts.add()
-                    app.registerCustomLayoutShortcuts()
+                .padding(.vertical, 4)
+
+                ForEach($settings.customLayouts) { $layout in
+                    HStack(alignment: .top, spacing: 14) {
+                        GridPreview(columns: layout.columns, rows: layout.rows)
+                            .frame(width: 84, height: 54)
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                TextField("", text: $layout.name, prompt: Text("Name"))
+                                    .labelsHidden()
+                                    .textFieldStyle(.plain)
+                                    .font(.body.weight(.medium))
+                                DeleteButton(label: "Delete \(layout.name)") { app.customLayouts.delete(layout.id) }
+                            }
+                            HStack(spacing: 16) {
+                                CompactStepper(
+                                    text: "\(layout.columns) column\(layout.columns == 1 ? "" : "s")",
+                                    value: Binding(
+                                        get: { layout.columns },
+                                        set: { layout.reshape(columns: $0, rows: layout.rows) }),
+                                    range: 1...6)
+                                CompactStepper(
+                                    text: "\(layout.rows) row\(layout.rows == 1 ? "" : "s")",
+                                    value: Binding(
+                                        get: { layout.rows },
+                                        set: { layout.reshape(columns: layout.columns, rows: $0) }),
+                                    range: 1...4)
+                            }
+                            HStack(spacing: 10) {
+                                KeyboardShortcuts.Recorder(for: layout.shortcutName)
+                                Button("Apply") { app.applyCustomLayout(layout.id) }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
                 }
             } header: {
                 SectionTitle("Custom layouts", symbol: "rectangle.split.3x1")
             } footer: {
                 Footnote(
-                    "A grid of equal cells, e.g. 3 columns for an ultrawide display. The most recently used windows fill it row by row; extra windows stay where they are."
+                    "Your own grids, e.g. 3 columns for an ultrawide display. Applying one fills its cells with your most recently used windows, left to right, top to bottom; other windows stay put. Use it from the menu, its shortcut or Apply."
                 )
             }
 
@@ -963,5 +991,31 @@ struct CompactStepper: View {
             @unknown default: break
             }
         }
+    }
+}
+
+/// A small picture of a grid layout: a screen with its cells, so the shape is obvious at a glance.
+struct GridPreview: View {
+    let columns: Int
+    let rows: Int
+
+    var body: some View {
+        GeometryReader { geo in
+            let pad = 3.0
+            let gap = 2.0
+            let w = (geo.size.width - 2 * pad - gap * Double(columns - 1)) / Double(max(1, columns))
+            let h = (geo.size.height - 2 * pad - gap * Double(rows - 1)) / Double(max(1, rows))
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.primary.opacity(0.08))
+                ForEach(0..<(columns * rows), id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                        .fill(i == 0 ? Color.accentColor : Color.accentColor.opacity(0.45))
+                        .frame(width: max(1, w), height: max(1, h))
+                        .offset(
+                            x: pad + Double(i % columns) * (w + gap), y: pad + Double(i / columns) * (h + gap))
+                }
+            }
+        }
+        .accessibilityLabel("\(columns) by \(rows) grid")
     }
 }
