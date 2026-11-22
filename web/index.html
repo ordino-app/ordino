@@ -323,6 +323,15 @@
   @media (max-width: 379px) { html #install .panel { --p-h: 250px; } }
   @media (max-width: 479px), (min-width: 1024px) and (max-width: 1279px) { .sheet__row { flex-wrap: wrap; } }
 
+  /* the Homebrew command under the hero buttons: one button, click copies it */
+  .brew { display: inline-flex; align-items: center; gap: 10px; margin-top: var(--s-5); padding: 6px 6px 6px 12px; font: 500 13px/1.4 var(--font-text);
+          color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; cursor: pointer; transition: border-color .15s, transform .1s; }
+  .brew code { font: 500 13px/1.4 var(--font-mono); color: var(--ink); }
+  .brew__hint { padding: 4px 8px; border-radius: 6px; background: var(--bg); color: var(--ink); }
+  .brew:hover { border-color: var(--muted); } .brew:active { transform: scale(.98); }
+  .brew:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (max-width: 639px) { .brew { display: none; } }   /* Homebrew is a Mac tool; the phone hero stays as it was */
+
   /* a tall window (960 and up, e.g. a portrait or half-width window on a big display): the close and the
      statement are as tall as what they hold, not a whole screen, which left hundreds of empty pixels
      between the heading and the name and under the keys. Laptop and phone screens keep one screen each. */
@@ -412,6 +421,7 @@
           <a class="btn btn--primary" href="https://ordino-app.github.io/ordino-updates/archives/ordino-0.2.0-beta.1.zip" data-download>Download<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
           <a class="btn btn--secondary" href="#shortcuts">See the shortcuts</a>
         </div>
+        <button type="button" class="brew" data-copy="#brew-cmd" aria-label="Copy the Homebrew install command"><span class="brew__label">Homebrew</span><code id="brew-cmd">brew install --cask ordino-app/tap/ordino</code><span class="brew__hint" aria-hidden="true">Copy</span></button>
       </div>
       <div class="hero__window" data-fx="grain-gradient" data-fx-seed="7" data-fx-palette='{"bg":"#dccfba","surface":"#ece4d6","ink":"#2a2622","accent":"#c98a62"}' role="img" aria-label="A Mac desktop with a code editor, a browser and a design tool windows scattered; after ⌃⌥⌘A, the code editor takes the large left slot and the browser and design tool stack on the right">
         <div class="desk mac" data-desk aria-hidden="true">

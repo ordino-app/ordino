@@ -1,4 +1,4 @@
-// ordino site: two small jobs the kit does not do.
+// ordino site: small jobs the kit does not do (hero snap, download links, copy buttons).
 // 1. The hero desktop: the scattered windows snap into Master + Stack once after load (the HUD shows the
 //    shortcut), and again when the pointer or the focus enters the frame. Under reduced motion they stand arranged.
 // 2. The download links: the static href points at 0.2.0-beta.1; the update feed (same origin) upgrades the
@@ -42,3 +42,23 @@ const SPARKLE = 'http://www.andymatuschak.org/xml-namespaces/sparkle';
     if (label && version) label.textContent = `Version ${version}` + (bytes ? ` · ${(bytes / 1e6).toFixed(1)} MB` : '');
   } catch { /* offline or blocked: the static link stays */ }
 })();
+
+// Copy buttons (the Homebrew command): copy the target's text, confirm briefly.
+const hint = (btn, text) => { const el = btn.querySelector('.brew__hint') || btn; el.textContent = text; };
+for (const btn of document.querySelectorAll('[data-copy]')) {
+  btn.addEventListener('click', async () => {
+    const text = document.querySelector(btn.dataset.copy)?.textContent?.trim();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      hint(btn, 'Copied');
+    } catch {
+      // No clipboard access: select the command so ⌘C copies it.
+      const range = document.createRange();
+      range.selectNodeContents(document.querySelector(btn.dataset.copy));
+      getSelection().removeAllRanges(); getSelection().addRange(range);
+      hint(btn, 'Press ⌘C');
+    }
+    setTimeout(() => hint(btn, 'Copy'), 1600);
+  });
+}
