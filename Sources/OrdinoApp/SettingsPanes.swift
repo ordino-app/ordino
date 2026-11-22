@@ -197,6 +197,39 @@ struct LayoutsPane: View {
                 }
             }
             .listRowBackground(Color.clear)
+
+            Section {
+                if settings.workspaces.isEmpty {
+                    Text("No workspaces yet.").foregroundStyle(.secondary)
+                }
+                ForEach($settings.workspaces) { $ws in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            TextField("Name", text: $ws.name)
+                                .textFieldStyle(.plain)
+                                .font(.body.weight(.medium))
+                            Spacer()
+                            KeyboardShortcuts.Recorder(for: ws.shortcutName)
+                            Button("Apply") { app.applyWorkspace(ws.id) }
+                            Button {
+                                app.workspaces.delete(ws.id)
+                            } label: {
+                                Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Delete \(ws.name)")
+                        }
+                        Text(ws.summary).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                }
+                Button("Save Current Layout as Workspace…") { app.saveWorkspace() }
+            } header: {
+                SectionTitle("Workspaces", symbol: "square.grid.2x2")
+            } footer: {
+                Footnote(
+                    "A workspace remembers where each app's windows are on a display. Applying it opens apps that aren't running and puts their windows back, on the display under the mouse."
+                )
+            }
         }
         .formStyle(.grouped)
         .confirmationDialog("Forget remembered layouts?", isPresented: $confirmForget) {

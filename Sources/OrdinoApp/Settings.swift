@@ -80,6 +80,10 @@ final class Settings {
     /// Per-app placement rules: bundle ID -> WindowAction raw value. Ruled apps are left out of
     /// layouts and put in their place after each arrange.
     var appRules: [String: String] { didSet { save(appRules, "appRules") } }
+    /// Saved workspaces (Settings › Layouts › Workspaces), stored as JSON.
+    var workspaces: [Workspace] {
+        didSet { if let data = try? JSONEncoder().encode(workspaces) { save(data, "workspaces") } }
+    }
 
     // MARK: Updates and shortcuts
 
@@ -106,6 +110,9 @@ final class Settings {
         rearrangeOnDisplayChange = defaults.object(forKey: "rearrangeOnDisplayChange") as? Bool ?? true
         snapOnDrag = defaults.object(forKey: "snapOnDrag") as? Bool ?? true
         appRules = defaults.dictionary(forKey: "appRules") as? [String: String] ?? [:]
+        workspaces =
+            (defaults.data(forKey: "workspaces")).flatMap { try? JSONDecoder().decode([Workspace].self, from: $0) }
+            ?? []
         showMenuBarIcon = defaults.object(forKey: "showMenuBarIcon") as? Bool ?? true
         primaryApps = defaults.stringArray(forKey: "primaryApps") ?? []
         ignoredApps = defaults.stringArray(forKey: "excludedBundleIDs") ?? []

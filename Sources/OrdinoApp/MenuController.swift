@@ -103,6 +103,7 @@ final class MenuController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
         addWindowActions(enabled: trusted)
+        menu.addItem(workspacesMenu(enabled: trusted))
         menu.addItem(.separator())
 
         if let frontmost = frontmostApp() {
@@ -301,6 +302,27 @@ final class MenuController: NSObject, NSMenuDelegate {
         let entry = commandItem(.window(action)) { [weak self] in self?.app.perform(.window(action)) }
         entry.image = ActionIcons.image(for: action)
         return entry
+    }
+
+    /// "Workspaces" submenu: apply a saved workspace, or save the current display as one.
+    private func workspacesMenu(enabled: Bool) -> NSMenuItem {
+        let parent = NSMenuItem(title: "Workspaces", action: nil, keyEquivalent: "")
+        parent.image = NSImage(systemSymbolName: "square.grid.2x2", accessibilityDescription: nil)
+        let sub = NSMenu()
+        for ws in app.settings.workspaces {
+            let i = item(ws.name) { [weak self] in self?.app.applyWorkspace(ws.id) }
+            i.toolTip = ws.summary
+            i.isEnabled = enabled
+            if let shortcut = KeyboardShortcuts.getShortcut(for: ws.shortcutName) { i.setShortcut(shortcut) }
+            sub.addItem(i)
+        }
+        if !app.settings.workspaces.isEmpty { sub.addItem(.separator()) }
+        let save = item("Save Current Layout as Workspace…") { [weak self] in self?.app.saveWorkspace() }
+        save.isEnabled = enabled
+        sub.addItem(save)
+        sub.addItem(item("Manage Workspaces…") { [weak self] in self?.app.showSettings(pane: .layouts) })
+        parent.submenu = sub
+        return parent
     }
 
     /// "Always Place <App>" submenu: a per-app rule (Settings › Apps › Rules).
