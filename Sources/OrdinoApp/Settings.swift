@@ -67,6 +67,8 @@ final class Settings {
     var showActionHUD: Bool { didSet { save(showActionHUD, "showActionHUD") } }
     /// Put windows back in the last layout of each display after a monitor is connected or disconnected.
     var rearrangeOnDisplayChange: Bool { didSet { save(rearrangeOnDisplayChange, "rearrangeOnDisplayChange") } }
+    /// Drag a window to a screen edge or corner to snap it.
+    var snapOnDrag: Bool { didSet { save(snapOnDrag, "snapOnDrag") } }
     var showMenuBarIcon: Bool { didSet { save(showMenuBarIcon, "showMenuBarIcon") } }
 
     // MARK: Apps
@@ -102,6 +104,7 @@ final class Settings {
         showArrangeHUD = defaults.object(forKey: "showArrangeHUD") as? Bool ?? true
         showActionHUD = defaults.object(forKey: "showActionHUD") as? Bool ?? false
         rearrangeOnDisplayChange = defaults.object(forKey: "rearrangeOnDisplayChange") as? Bool ?? true
+        snapOnDrag = defaults.object(forKey: "snapOnDrag") as? Bool ?? true
         appRules = defaults.dictionary(forKey: "appRules") as? [String: String] ?? [:]
         showMenuBarIcon = defaults.object(forKey: "showMenuBarIcon") as? Bool ?? true
         primaryApps = defaults.stringArray(forKey: "primaryApps") ?? []

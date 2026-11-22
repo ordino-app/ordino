@@ -86,8 +86,13 @@ struct GeneralPane: View {
                     help:
                         "After you connect or disconnect a monitor, ordino puts the windows on each display you arranged before back into that display's last layout.",
                     isOn: $settings.rearrangeOnDisplayChange)
+                ToggleRow(
+                    symbol: "hand.point.up.left", title: "Snap windows dragged to the screen edge",
+                    help:
+                        "Drag a window to the left or right edge for a half, to the top for full screen, or into a corner for a quarter. Hold ⌘ to drag without snapping. Off while another window manager is running.",
+                    isOn: $settings.snapOnDrag)
             } header: {
-                SectionTitle("Displays", symbol: "display")
+                SectionTitle("Displays and dragging", symbol: "display")
             }
 
             Section {
