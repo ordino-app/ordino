@@ -58,6 +58,19 @@ public final class ArrangeCoordinator {
         public let windowIDs: [WindowID]
         /// The window that gets the master slot (if the layout has one).
         public let primaryID: WindowID?
+
+        public init(
+            display: DisplaySnapshot, plan: LayoutPlan, appNames: [WindowID: String], bundleIDs: [WindowID: String],
+            titles: [WindowID: String], windowIDs: [WindowID], primaryID: WindowID?
+        ) {
+            self.display = display
+            self.plan = plan
+            self.appNames = appNames
+            self.bundleIDs = bundleIDs
+            self.titles = titles
+            self.windowIDs = windowIDs
+            self.primaryID = primaryID
+        }
     }
 
     public var preferences: LayoutPreferences

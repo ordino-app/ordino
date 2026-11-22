@@ -9,3 +9,7 @@ DerivedData/
 *.zip
 dist/
 build/
+web/shots/
+web/.taste-skill/
+web/media/*.png
+.claude/

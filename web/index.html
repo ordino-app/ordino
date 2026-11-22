@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="en" data-type="software" data-radius="soft" data-ground="sand" data-buttons="tonal" data-motion>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ordino: one-keystroke window layouts for Mac</title>
+<meta name="description" content="A free menu bar app that arranges every window on a display when you press ⌃⌥⌘A. Runs on macOS 14 Sonoma or later, Apple silicon and Intel.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="ordino: one-keystroke window layouts for Mac">
+<meta property="og:description" content="A free menu bar app that arranges every window on a display when you press ⌃⌥⌘A.">
+<meta property="og:image" content="https://xsugra.github.io/ordino-web/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://xsugra.github.io/ordino-web/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#fbfaf7">
+<link rel="canonical" href="https://xsugra.github.io/ordino-web/">
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/system.css">
+<link rel="stylesheet" href="assets/ui/cards.css">
+<link rel="stylesheet" href="assets/motion/motion.css">
+<link rel="stylesheet" href="assets/backgrounds/backgrounds.css">
+<link rel="stylesheet" href="assets/layout/layout.css">
+<link rel="stylesheet" href="assets/icons/icon.css">
+<style>
+:root {
+  --p-bg: #fbfaf7; --p-surface: #edeae4; --p-ink: #2b2d31; --p-muted: #62646b;
+  --p-accent: #d9653b; --p-accent-ink: #111111; --p-action: #d9653b; --p-action-ink: #111111;
+  --p-inv-bg: #2b2d31; --p-inv-surface: #37393d; --p-inv-ink: #fbfaf7; --p-inv-muted: #a5a6a6;
+  --p-inv-accent: #d9653b; --p-inv-accent-ink: #111111; --p-inv-action: #d9653b; --p-inv-action-ink: #111111;
+  --font-display: "Outfit", system-ui, sans-serif;
+  --font-text: "Outfit", system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --display-weight: 400;
+  --display-tracking: -0.03em;
+  --display-tracking-xl: -0.04em;
+}
+</style>
+<link rel="stylesheet" href="assets/ui/base.css">
+<script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
+<script src="assets/backgrounds/backgrounds.js"></script>
+<script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
+<link rel="modulepreload" href="assets/moments/moments.js">
+<link rel="modulepreload" href="assets/moments/lib.js">
+<link rel="modulepreload" href="assets/moments/letters-assemble/moment.js">
+<!-- page CSS: only what sits inside a visual (the drawn Mac desktop, the menu, the layout drawings, the install mocks) -->
+<style>
+  /* the Mac look inside the drawn UI: the system face, as macOS draws its own menus and windows */
+  .mac { --mac-font: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif; font-family: var(--mac-font); color: #1d1d1f; }
+  .kbd { font-family: var(--mac-font); font-feature-settings: "tnum"; letter-spacing: .02em; }
+
+  /* ---- hero: a Mac desktop whose windows snap into Master + Stack */
+  .hero__window > .desk { position: absolute; z-index: 1; left: 50%; top: var(--s-6); transform: translateX(-50%);
+    width: min(880px, calc(100% - 2 * var(--s-6))); aspect-ratio: 2 / 1; border-radius: 12px; overflow: hidden;
+    background: linear-gradient(160deg, #e9dfcf, #d8c6ad 60%, #cdb79b); box-shadow: 0 0 0 1px rgb(43 45 49 / .14), 0 24px 48px -24px rgb(43 45 49 / .45); }
+  .desk__bar { position: absolute; inset: 0 0 auto 0; height: 22px; display: flex; align-items: center; gap: 14px; padding: 0 12px;
+    background: rgb(251 250 247 / .78); font-size: 12px; font-weight: 500; color: #1d1d1f; z-index: 3; }
+  .desk__bar .sp { flex: 1; }
+  .desk__bar img { height: 13px; width: auto; display: block; }
+  .desk__bar span:not(.sp) { white-space: nowrap; }
+  .desk__bar .dim { font-weight: 400; }
+  .desk__area { position: absolute; inset: 22px 0 0 0; }
+  .win { position: absolute; left: var(--x); top: var(--y); width: var(--w); height: var(--h); padding: 6px;
+    transition: transform 640ms cubic-bezier(.22,1,.36,1); transition-delay: var(--d, 0ms); transform-origin: 0 0; }
+  .win__in { width: 100%; height: 100%; border-radius: 9px; overflow: hidden; background: #fff; display: flex; flex-direction: column;
+    box-shadow: 0 0 0 .5px rgb(0 0 0 / .18), 0 10px 24px -10px rgb(0 0 0 / .35); }
+  .win__bar { height: 26px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 9px; background: #f3f1ee; border-bottom: 1px solid rgb(0 0 0 / .07); font-size: 11px; font-weight: 500; color: #3a3a3c; }
+  .win__bar i { width: 8px; height: 8px; border-radius: 50%; background: #ff5f57; flex: none; }
+  .win__bar i + i { background: #febc2e; } .win__bar i + i + i { background: #28c840; margin-right: 6px; }
+  .win__bar img { width: 14px; height: 14px; }
+  .win__body { flex: 1; min-height: 0; position: relative; }
+  .win--primary { --x: 0%; --y: 0%; --w: 60%; --h: 100%; --sx: 28%; --sy: 16%; --s: .62; }
+  .win--top { --x: 60%; --y: 0%; --w: 40%; --h: 50%; --sx: -46%; --sy: 52%; --s: .9; --d: 60ms; }
+  .win--bottom { --x: 60%; --y: 50%; --w: 40%; --h: 50%; --sx: -10%; --sy: -34%; --s: .82; --d: 120ms; }
+  .desk.is-scattered .win { transform: translate(var(--sx), var(--sy)) scale(var(--s)); transition: none; }
+  .desk.is-scattered .win--primary { z-index: 1; } .desk.is-scattered .win--top { z-index: 2; }
+  /* the window contents: abstract lines, so the arrangement is what reads */
+  .code { position: absolute; inset: 0; display: grid; grid-template-columns: 22% 1fr; }
+  .code__side { background: #f6f5f3; border-right: 1px solid rgb(0 0 0 / .06); padding: 10px 8px; display: grid; align-content: start; gap: 7px; }
+  .code__side b, .code__main b, .page b, .canvas b { display: block; height: 6px; border-radius: 3px; background: rgb(43 45 49 / .14); }
+  .code__side b:nth-child(3) { background: rgb(217 101 59 / .45); }
+  .code__main { padding: 12px 14px; display: grid; align-content: start; gap: 8px; }
+  .code__main b { margin-left: var(--i, 0); width: var(--l, 60%); }
+  .code__main b:nth-child(3n) { background: rgb(64 117 196 / .35); } .code__main b:nth-child(4n) { background: rgb(196 120 64 / .35); }
+  .page { position: absolute; inset: 0; padding: 12px; display: grid; align-content: start; gap: 8px; }
+  .page__hero { height: 44px; border-radius: 6px; background: linear-gradient(120deg, #c9d8e6, #e7eef4); }
+  .canvas { position: absolute; inset: 0; background: #ecebe8; display: grid; place-items: center; }
+  .canvas__art { width: 58%; aspect-ratio: 4 / 3; background: #fff; border-radius: 4px; box-shadow: 0 0 0 1px rgb(0 0 0 / .06); padding: 10px; display: grid; align-content: start; gap: 6px; }
+  .canvas__art i { display: block; height: 30%; border-radius: 4px; background: #f0b49a; }
+  .hud { position: absolute; z-index: 4; left: 50%; top: 50%; translate: -50% -50%; padding: 10px 16px; border-radius: 12px;
+    background: rgb(40 40 42 / .78); color: #fff; font-size: 13px; font-weight: 500; text-align: center; opacity: 0; transition: opacity 240ms ease;
+    display: grid; gap: 2px; white-space: nowrap; }
+  .hud .kbd { font-size: 18px; } .hud span:last-child { font-weight: 400; color: rgb(255 255 255 / .8); font-size: 12px; }
+  .desk.is-hud .hud { opacity: 1; }
+  @media (max-width: 639px) {
+    .hero__window > .desk { top: var(--s-4); width: calc(100% - 2 * var(--s-4)); }
+    .desk__bar .dim, .desk__bar .opt { display: none; }
+    .win { padding: 4px; } .win__bar { height: 18px; font-size: 9px; padding: 0 6px; } .win__bar i { width: 6px; height: 6px; }
+    .hud { font-size: 11px; padding: 6px 10px; } .hud .kbd { font-size: 14px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .win { transition: none; } .desk.is-scattered .win { transform: none; } .hud { display: none; } }
+
+  /* ---- the app frame: the menu bar menu beside the Layouts settings (sections-library.md app-frame) */
+  .app.ui { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); margin-top: var(--s-7); background: var(--u-bg); border: 1px solid var(--u-border); border-radius: var(--u-r); box-shadow: var(--u-shadow); }
+  .app > .app__pane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+  .app > .app__pane + .app__pane { border-left: 1px solid var(--u-line); }
+  .app > .app__pane::after { content: ""; position: absolute; inset: auto 0 0 0; height: 64px; background: linear-gradient(transparent, var(--u-bg)); pointer-events: none; z-index: 3; }
+  @media (min-width: 1024px) and (max-width: 1279px) { .app.ui { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } }
+  @media (max-width: 1023px) {
+    .app.ui { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  }
+  @media (max-width: 639px) {
+    .app.ui { grid-template-columns: minmax(0, 1fr); }
+    .app > .app__pane--open { display: none; }
+  }
+  .app__pane--list { background: linear-gradient(170deg, #efe6d8, #e2d3bd); }
+  .menubar { height: 26px; display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 0 14px; background: rgb(251 250 247 / .82); font-size: 13px; color: #1d1d1f; }
+  .menubar__ordino { height: 22px; padding: 0 7px; border-radius: 5px; background: rgb(0 0 0 / .1); display: grid; place-items: center; }
+  .menubar__ordino img { height: 13px; width: auto; }
+  .mmenu { position: absolute; top: 31px; right: 14px; width: min(330px, calc(100% - 28px)); padding: 5px; border-radius: 10px; font-size: 13px; line-height: 1;
+    background: rgb(250 249 247 / .97); box-shadow: 0 0 0 .5px rgb(0 0 0 / .22), 0 16px 40px -12px rgb(0 0 0 / .35); }
+  .mmenu__card { margin: 0 0 5px; padding: 10px; border-radius: 7px; background: rgb(0 0 0 / .045); display: grid; gap: 8px; }
+  .mmenu__card--real { padding: 0; background: none; }
+  .mmenu__card--real img { display: block; width: 100%; height: auto; }
+  .mmenu__title { display: flex; justify-content: space-between; font-weight: 600; }
+  .mmenu__title .kbd { font-weight: 400; color: #6e6e73; }
+  .mmenu__sub { font-size: 11px; color: #6e6e73; line-height: 1.35; }
+  .mmenu__thumb { display: grid; grid-template-columns: 3fr 2fr; grid-template-rows: 1fr 1fr; gap: 4px; height: 92px; padding: 5px; border-radius: 6px; background: #2b2d31; }
+  .mmenu__thumb span { border-radius: 4px; background: #edeae4; display: grid; place-items: center; font-size: 11px; font-weight: 500; color: #2b2d31; }
+  .mmenu__thumb span:first-child { grid-row: 1 / span 2; background: #d9653b; color: #fff; }
+  .mmenu__icons { display: flex; gap: 6px; }
+  .mmenu__icons i { width: 26px; height: 18px; border-radius: 4px; border: 1.5px solid #8e8e93; display: grid; gap: 2px; padding: 2px; }
+  .mmenu__icons i.on { border-color: #d9653b; background: rgb(217 101 59 / .12); }
+  .mmenu__icons i b { display: block; border-radius: 1px; background: #8e8e93; }
+  .mmenu__icons i.on b { background: #d9653b; }
+  .mi { display: flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 5px; white-space: nowrap; }
+  .mi .kbd { margin-left: auto; color: #6e6e73; padding-left: 16px; }
+  .mi .chev { margin-left: auto; color: #6e6e73; }
+  .mi.is-on { background: #d9653b; color: #fff; } .mi.is-on .kbd { color: rgb(255 255 255 / .85); }
+  .msep { height: 1px; margin: 5px 9px; background: rgb(0 0 0 / .1); }
+  .app__pane--open { background: #f5f5f5; }
+  .app__pane--open img { display: block; width: 100%; height: auto; max-width: none; }
+
+  /* ---- the four layout drawings in the feature tiles */
+  #layouts .panel { --p-h: 300px; }
+  .lay { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; gap: var(--s-4); padding: var(--s-6); }
+  .scr { flex: none; height: var(--sh, 96px); aspect-ratio: var(--ar, 16 / 10); padding: 4px; border-radius: 7px; background: #2b2d31; display: grid; gap: 3px;
+    box-shadow: 0 14px 30px -18px rgb(43 45 49 / .6); }
+  .scr > i { display: block; border-radius: 3px; background: #edeae4; min-width: 0; min-height: 0; }
+  .scr > i.p { background: #d9653b; }
+  .scr--1 { grid-template: 1fr / 1fr; }
+  .scr--2 { grid-template: 1fr / 1fr 1fr; }
+  .scr--3 { grid-template: 1fr 1fr / 3fr 2fr; } .scr--3 > .p { grid-row: 1 / span 2; }
+  .scr--4 { grid-template: 1fr 1fr / 1fr 1fr; }
+  .scr--6 { grid-template: 1fr 1fr / 1fr 1fr 1fr; }
+  .scr--uw { --ar: 32 / 10; grid-template: 1fr / 2fr 3fr 2fr; }
+  .scr--pt { --ar: 10 / 16; grid-template: 3fr 2fr 2fr / 1fr; }
+  .lay--count { flex-wrap: wrap; align-content: center; gap: var(--s-3); }
+  .lay--count .scr { --sh: 70px; }
+  .lay__col { display: grid; justify-items: center; gap: var(--s-2); }
+  .lay__n { font: 500 13px/1 var(--font-text); color: var(--ground-ink, #2a2622); }
+  .slot { display: grid; place-items: center; gap: 4px; font: 500 12px/1 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; color: #2b2d31; }
+  .slot img { width: 26px; height: 26px; }
+  .scr > i.slot { display: grid; } .scr > i.p.slot { color: #fff; }
+  .lay--primary .scr { --sh: 168px; }
+  .chip { position: absolute; z-index: 2; left: 50%; bottom: var(--s-5); translate: -50% 0; display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-radius: 8px;
+    background: #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / .08), 0 8px 20px -10px rgb(0 0 0 / .3); font: 500 13px/1 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; color: #1d1d1f; white-space: nowrap; }
+  .chip .tick { width: 14px; height: 14px; border-radius: 4px; background: #d9653b; display: grid; place-items: center; }
+  .chip .tick svg { width: 10px; height: 10px; }
+  .lay--primary { padding-bottom: 72px; }
+  .lay--next { flex-direction: column; gap: var(--s-4); }
+  .lay__row { display: flex; align-items: center; gap: var(--s-3); }
+  .keys { display: flex; gap: 6px; }
+  .keys span { min-width: 38px; height: 38px; padding: 0 8px; display: grid; place-items: center; border-radius: 8px; background: #fff; color: #1d1d1f;
+    box-shadow: 0 0 0 1px rgb(0 0 0 / .1), 0 2px 0 rgb(0 0 0 / .12); font: 500 17px/1 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+  .lay--next .scr { --sh: 74px; }
+  .arrow { color: var(--ground-ink, #2a2622); font: 500 13px/1 var(--font-text); display: grid; justify-items: center; gap: 4px; }
+  .arrow svg { width: 36px; height: 12px; }
+  @media (max-width: 639px) {
+    #layouts .panel { --p-h: 180px; }
+    .lay { padding: var(--s-4); gap: var(--s-3); }
+    .lay--count .scr { --sh: 46px; } .lay--primary .scr { --sh: 118px; } .lay--next .scr { --sh: 52px; }
+    .scr--uw { --sh: 54px !important; } .lay--fit .scr--pt { --sh: 110px; } .lay--fit .scr--uw { --sh: 46px !important; }
+    .keys span { min-width: 30px; height: 30px; font-size: 14px; }
+    .lay--primary { padding-bottom: 60px; } .chip { bottom: var(--s-4); }
+  }
+  .lay--fit .scr--pt { --sh: 180px; } .lay--fit .scr--uw { --sh: 92px; }
+
+  /* ---- settings screenshots in the tabs frame */
+  .shot { border-radius: 12px; overflow: hidden; background: #f5f5f5; box-shadow: 0 0 0 1px rgb(0 0 0 / .1), 0 24px 48px -24px rgb(43 45 49 / .45); }
+  .shot img { display: block; width: 100%; height: auto; max-width: none; }
+  #shortcuts .frame--split { --ratio: 100%; }
+  #shortcuts .stage > .at-corner { --ax: 40px; --ay: 40px; width: calc(100% - 80px); height: 100%; }
+  #shortcuts .shot { height: 100%; } #shortcuts .shot img { height: 100%; object-fit: cover; object-position: left top; }
+  @media (max-width: 639px) { #shortcuts .stage > .at-corner { --ax: 16px; --ay: 16px; width: calc(100% - 32px); } }
+
+  .rot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-5); margin-top: var(--s-7); }
+  .rot .scr { --sh: 120px; }
+  @media (min-width: 1024px) and (max-width: 1279px) { .rot .scr { --sh: 100px; } }
+  .keys--lg span { min-width: 64px; height: 64px; font-size: 26px; border-radius: 12px; }
+  @media (max-width: 1023px) { .rot { margin-top: var(--s-9); } .rot .keys { flex-basis: 100%; } .rot .scr { --sh: 124px; } .keys--lg span { min-width: 96px; height: 96px; font-size: 34px; border-radius: 16px; } }
+  @media (max-width: 639px) { .rot { gap: var(--s-3); } .rot .scr { --sh: 64px; } .rot .slot img { width: 16px; height: 16px; } .keys--lg span { min-width: 48px; height: 48px; font-size: 20px; } }
+  /* the tablet and the small laptop stack the three steps (system.css takes span-4 cards two-up under 1280) */
+  @media (min-width: 640px) and (max-width: 1279px) { #install { --h: 2; } }
+  @media (max-width: 639px) { #shortcuts .frame--split { --ratio: 80%; } }
+  @media (min-width: 1280px) { html #install .panel { --p-h: calc(100svh - 448px); } }
+  #statement .mo-la__sub { color: var(--ink); }
+  @media (max-width: 379px) { .nav:not(.is-open) .nav__actions { display: none; } .nav__logo img { height: 20px; } }
+  .hero--centred .hero__lead { color: var(--ink); }
+  .faq__head { align-self: start; align-content: start; }
+  .faq__icon { width: 128px; height: 128px; margin-top: var(--s-6); }
+  @media (max-width: 639px) { .faq__icon { width: 80px; height: 80px; } }
+  @media (min-width: 640px) and (max-width: 1023px) {
+    #layouts .grid > .card { grid-column: auto / span 6; }
+    #layouts .panel { --p-h: calc(100svh - 500px); }
+    .hero__window > .desk { aspect-ratio: 16 / 10; }
+    #layouts .lay { flex-wrap: wrap; align-content: center; }
+    #layouts .lay--count .scr { --sh: 60px; } #layouts .lay--primary .scr { --sh: 200px; } #layouts .lay--next .scr { --sh: 84px; }
+    #layouts .lay--fit .scr--uw { --sh: 88px; } #layouts .lay--fit .scr--pt { --sh: 240px; }
+    html #install .panel { --p-h: calc((200svh - 312px) / 3 - 170px); }
+  }
+  /* ---- install steps */
+  #install .panel { --p-h: 260px; }
+  .inst { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; padding: var(--s-5); }
+  .inst__drag { display: flex; align-items: center; gap: var(--s-4); }
+  .file { display: grid; justify-items: center; gap: 6px; font: 400 12px/1.2 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; color: #1d1d1f; text-align: center; }
+  .file img { width: 64px; height: 64px; }
+  .file__zip { width: 52px; height: 64px; border-radius: 6px; background: #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / .1); position: relative; }
+  .file__zip::before { content: ""; position: absolute; left: 50%; top: 6px; bottom: 14px; width: 6px; translate: -50% 0; background: repeating-linear-gradient(#8e8e93 0 3px, transparent 3px 6px); }
+  .file__folder { width: 72px; height: 58px; border-radius: 8px; background: #5aa9e6; position: relative; display: grid; place-items: center; }
+  .file__folder img { width: 34px; height: 34px; }
+  .sheet { width: min(100%, 300px); padding: var(--s-4); border-radius: 12px; background: #f5f5f5; box-shadow: 0 0 0 1px rgb(0 0 0 / .1), 0 16px 32px -16px rgb(0 0 0 / .35);
+    font: 400 13px/1.35 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; color: #1d1d1f; display: grid; gap: 10px; }
+  .sheet__head { font-weight: 600; font-size: 13px; }
+  .sheet__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px; border-radius: 8px; background: #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / .06); }
+  .sheet__row img { width: 22px; height: 22px; flex: none; }
+  .sheet__btn { flex: none; height: 24px; padding: 0 10px; border-radius: 6px; background: #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / .16), 0 1px 1px rgb(0 0 0 / .08); display: grid; place-items: center; font-size: 12px; white-space: nowrap; }
+  .sw { flex: none; width: 32px; height: 19px; border-radius: 10px; background: #34c759; position: relative; }
+  .sw::after { content: ""; position: absolute; right: 2px; top: 2px; width: 15px; height: 15px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / .2); }
+  .sw--off { background: #d1d1d6; } .sw--off::after { right: auto; left: 2px; }
+  .sheet__who { display: flex; align-items: center; gap: 8px; }
+  @media (max-width: 639px) { html #install .panel { --p-h: 290px; } #install { --hm: 2; } }
+
+  /* ---- the close: the client's wordmark across the .wrap (brand rule: the name is never set in another face) */
+  .close__word svg { display: block; width: 100%; height: auto; }
+  .close__word { line-height: 0; }
+</style>
+</head>
+<body>
+<!-- type: software (site-kind software; a free macOS menu bar utility)
+     deal: hero centred, nav nav-centre (nav-cards dealt first, dealt again: one product, no screen per card), close close-word,
+     footer footer-statement, rhythm surface-pairs (#shortcuts on .ground-surface), buttons tonal, mark: the client's logo,
+     palette: the client's brand colours through start.mjs brand (paper, graphite, terracotta, off-white), type outfit (epilogue dealt first; it failed hero-lines at 36 characters),
+     radius soft, lit ground sand
+     effect: grain-gradient in the hero frame (behind the drawn desktop); card ground painterly-landscape (#layouts, still)
+     moments: letters-assemble in #statement (the brand line builds itself) -->
+<header class="nav nav--centre">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">Skip to content</a>
+    <a class="nav__logo" href="#top" aria-label="ordino, back to the top"><img src="logo-horizontal.svg" alt="ordino" width="139" height="25"></a>
+    <nav class="nav__links" aria-label="Main">
+      <div class="nav__item">
+        <a class="nav__link" href="#menu">Product <svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <div class="nav__menu">
+          <div class="wrap grid">
+            <div class="menu-col span-3">
+              <p class="t-label">Arrange</p>
+              <a href="#menu">Menu<span>Every action in one place</span></a>
+              <a href="#layouts">Layouts<span>Picked by window count</span></a>
+            </div>
+            <div class="menu-col span-3">
+              <p class="t-label">One window</p>
+              <a href="#shortcuts">Shortcuts<span>Halves, corners, thirds</span></a>
+              <a href="#install">Install<span>Three steps, asked once</span></a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" href="#layouts">Layouts</a></div>
+      <div class="nav__item"><a class="nav__link" href="#shortcuts">Shortcuts</a></div>
+      <div class="nav__item"><a class="nav__link" href="#install">Install</a></div>
+      <div class="nav__item"><a class="nav__link" href="#faq">Questions</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="btn btn--primary" href="https://xsugra.github.io/ordino-updates/archives/ordino-0.2.0-beta.1.zip" data-download>Download ordino</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero hero--centred" data-enter aria-labelledby="hero-h">
+    <div class="wrap"><div class="hero-text">
+      <div class="hero__c">
+        <p class="pill"><span>Free for Mac</span><span class="muted" data-dl-label>Version 0.2.0-beta.1 · 3.6 MB</span></p>
+        <h1 id="hero-h">One-keystroke window layouts for Mac</h1>
+        <p class="hero__lead">Press <span class="kbd">⌃⌥⌘A</span> and ordino arranges every window on the display, picking the layout by window count and screen shape. For macOS 14 Sonoma or later.</p>
+        <div class="btn-row">
+          <a class="btn btn--primary" href="https://xsugra.github.io/ordino-updates/archives/ordino-0.2.0-beta.1.zip" data-download>Download ordino<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+          <a class="btn btn--secondary" href="#shortcuts">See the shortcuts</a>
+        </div>
+      </div>
+      <div class="hero__window" data-fx="grain-gradient" data-fx-seed="7" data-fx-palette='{"bg":"#dccfba","surface":"#ece4d6","ink":"#2a2622","accent":"#c98a62"}' role="img" aria-label="A Mac desktop with Xcode, Safari and Figma windows scattered; after ⌃⌥⌘A, Xcode takes the large left slot and Safari and Figma stack on the right">
+        <div class="desk mac" data-desk aria-hidden="true">
+          <script>document.currentScript.parentElement.classList.add('is-scattered')</script>
+          <div class="desk__bar"><span>Xcode</span><span class="dim">File</span><span class="dim">Edit</span><span class="dim">View</span><span class="sp"></span><img width="16" height="16" src="logo-mark.svg" alt=""><span class="dim opt">Mon 9:41</span></div>
+          <div class="desk__area">
+            <div class="win win--primary"><div class="win__in">
+              <div class="win__bar"><i></i><i></i><i></i><img width="26" height="26" src="assets/icons/xcode.svg" alt="">Xcode</div>
+              <div class="win__body"><div class="code">
+                <div class="code__side"><b style="width:70%"></b><b style="width:85%"></b><b style="width:60%"></b><b style="width:75%"></b><b style="width:50%"></b></div>
+                <div class="code__main"><b style="--l:42%"></b><b style="--l:66%;--i:8%"></b><b style="--l:54%;--i:8%"></b><b style="--l:72%;--i:16%"></b><b style="--l:38%;--i:16%"></b><b style="--l:58%;--i:8%"></b><b style="--l:20%"></b><b style="--l:62%"></b><b style="--l:48%;--i:8%"></b></div>
+              </div></div>
+            </div></div>
+            <div class="win win--top"><div class="win__in">
+              <div class="win__bar"><i></i><i></i><i></i><img width="26" height="26" src="assets/icons/safari.svg" alt="">Safari</div>
+              <div class="win__body"><div class="page"><div class="page__hero"></div><b style="width:70%"></b><b style="width:90%"></b><b style="width:55%"></b></div></div>
+            </div></div>
+            <div class="win win--bottom"><div class="win__in">
+              <div class="win__bar"><i></i><i></i><i></i><img width="18" height="26" src="assets/icons/figma.svg" alt="">Figma</div>
+              <div class="win__body"><div class="canvas"><div class="canvas__art"><i></i><b style="width:70%"></b><b style="width:45%"></b></div></div></div>
+            </div></div>
+          </div>
+          <div class="hud"><span class="kbd">⌃⌥⌘A</span><span>Master + Stack · 3 windows</span></div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="section" id="menu" aria-labelledby="menu-h">
+    <div class="wrap">
+      <div class="grid">
+        <div class="section-head span-5"><h2 id="menu-h">One menu for every window action.</h2></div>
+        <div class="span-6 start-7 stack-4">
+          <p>Click the ordino icon in the menu bar. The card on top names the display, its window count and the layout ordino will use. Each action shows its shortcut.</p>
+          <a class="link" href="#layouts">See how layouts are picked</a>
+        </div>
+      </div>
+      <div class="ui app fill" role="img" aria-label="The ordino menu open under its menu bar icon, beside the Layouts settings with the Master + Stack preview" data-ui-pause-host>
+        <div class="app__pane app__pane--list mac">
+          <div class="menubar"><span class="menubar__ordino"><img loading="lazy" width="16" height="16" src="logo-mark.svg" alt=""></span><span>Mon 9:41</span></div>
+          <div class="mmenu" role="img" aria-label="The ordino menu: Arrange Windows, layouts, primary window, rotate, undo and the single-window actions with their shortcuts">
+            <div class="mmenu__card mmenu__card--real">
+              <img src="media/menu-card.webp" width="320" height="252" loading="lazy" decoding="async" alt="">
+            </div>
+            <div class="mi is-on">Arrange Windows<span class="kbd">⌃⌥⌘A</span></div>
+            <div class="mi">Layout<span class="chev">›</span></div>
+            <div class="mi">Primary Window<span class="chev">›</span></div>
+            <div class="mi">Rotate Windows<span class="kbd">⌃⌥⌘R</span></div>
+            <div class="mi">Undo Arrange<span class="kbd">⌃⌥⌘Z</span></div>
+            <div class="msep"></div>
+            <div class="mi">Left<span class="kbd">⌃⌥←</span></div>
+            <div class="mi">Right<span class="kbd">⌃⌥→</span></div>
+            <div class="mi">Center</div>
+            <div class="mi">Top<span class="kbd">⌃⌥↑</span></div>
+            <div class="mi">Bottom<span class="kbd">⌃⌥↓</span></div>
+            <div class="mi">Top Left<span class="kbd">⌃⌥U</span></div>
+            <div class="mi">Top Right<span class="kbd">⌃⌥I</span></div>
+            <div class="mi">Maximize<span class="kbd">⌃⌥↩</span></div>
+            <div class="mi">Next Display<span class="kbd">⌃⌥⌘→</span></div>
+            <div class="mi">Move to Edge<span class="chev">›</span></div>
+            <div class="mi">Fourths<span class="chev">›</span></div>
+            <div class="mi">Sixths<span class="chev">›</span></div>
+            <div class="msep"></div>
+            <div class="mi">Ignore Safari</div>
+            <div class="msep"></div>
+            <div class="mi">Settings…<span class="kbd">⌘,</span></div>
+            <div class="mi">About ordino</div>
+            <div class="mi">Check for Updates…</div>
+            <div class="msep"></div>
+            <div class="mi">Quit ordino<span class="kbd">⌘Q</span></div>
+          </div>
+        </div>
+        <div class="app__pane app__pane--open">
+          <img src="media/settings-layouts.webp" alt="" width="1520" height="1240" loading="lazy" decoding="async">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section g2" id="layouts" aria-labelledby="layouts-h">
+    <div class="wrap">
+      <div class="group">
+        <div class="section-head">
+          <h2 id="layouts-h">A layout for every window count. <span class="muted">Shaped to the display.</span></h2>
+        </div>
+        <div class="grid">
+          <article class="card card--row card--open span-6 m-nolift">
+            <h3>Picks a layout by window count</h3>
+            <p>One window is maximized, two sit side by side, three get a primary and a stack, four a 2×2 grid, five to nine a grid.</p>
+            <div class="panel" data-fx="painterly-landscape" data-fx-seed="21" data-fx-params='{"drift":0,"speed":0,"blur":1,"brush":0.35,"slope":0,"hillY":0.3,"horizon":0.62}' data-fx-palette='{"bg":"#d9ccb7","surface":"#e9e0d2","ink":"#2a2622","accent":"#a8794a"}'>
+              <div class="lay lay--count" role="img" aria-label="Five displays: one window maximized, two side by side, a primary and a stack of two, a 2 by 2 grid and a grid of six">
+                <div class="lay__col"><div class="scr scr--1"><i class="p"></i></div><span class="lay__n">1</span></div>
+                <div class="lay__col"><div class="scr scr--2"><i class="p"></i><i></i></div><span class="lay__n">2</span></div>
+                <div class="lay__col"><div class="scr scr--3"><i class="p"></i><i></i><i></i></div><span class="lay__n">3</span></div>
+                <div class="lay__col"><div class="scr scr--4"><i class="p"></i><i></i><i></i><i></i></div><span class="lay__n">4</span></div>
+                <div class="lay__col"><div class="scr scr--6"><i class="p"></i><i></i><i></i><i></i><i></i><i></i></div><span class="lay__n">6</span></div>
+              </div>
+            </div>
+          </article>
+          <article class="card card--row card--open span-6 m-nolift">
+            <h3>Fits windows to ultrawide and portrait screens</h3>
+            <p>On an ultrawide display ordino prefers columns and centres a lone window. On a portrait display it prefers rows.</p>
+            <div class="panel" data-fx="painterly-landscape" data-fx-seed="34" data-fx-params='{"drift":0,"speed":0,"blur":1,"brush":0.35,"slope":0,"hillY":0.3,"horizon":0.62}' data-fx-palette='{"bg":"#d9ccb7","surface":"#e9e0d2","ink":"#2a2622","accent":"#a8794a"}'>
+              <div class="lay lay--fit" role="img" aria-label="An ultrawide display with three columns beside a portrait display with three rows">
+                <div class="scr scr--uw"><i></i><i class="p"></i><i></i></div>
+                <div class="scr scr--pt"><i class="p"></i><i></i><i></i></div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+      <div class="grid">
+        <article class="card card--row card--open span-6 m-nolift">
+          <h3>Gives your work window the big slot</h3>
+          <p>The window you work in takes the large slot. Pick another in the menu, or click its slot in the preview.</p>
+          <div class="panel" data-fx="painterly-landscape" data-fx-seed="47" data-fx-params='{"drift":0,"speed":0,"blur":1,"brush":0.35,"slope":0,"hillY":0.3,"horizon":0.62}' data-fx-palette='{"bg":"#d9ccb7","surface":"#e9e0d2","ink":"#2a2622","accent":"#a8794a"}'>
+            <div class="lay lay--primary" role="img" aria-label="Xcode in the large primary slot with Safari and Figma stacked beside it, and the setting Always make Xcode primary switched on">
+              <div class="scr scr--3"><i class="p slot"><img loading="lazy" width="26" height="26" src="assets/icons/xcode.svg" alt=""></i><i class="slot"><img loading="lazy" width="26" height="26" src="assets/icons/safari.svg" alt=""></i><i class="slot"><img loading="lazy" width="18" height="26" src="assets/icons/figma.svg" alt=""></i></div>
+              <span class="chip"><span class="tick"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 5.2 4.2 7.4 8 3" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Always make Xcode primary</span>
+            </div>
+          </div>
+        </article>
+        <article class="card card--row card--open span-6 m-nolift">
+          <h3>Tries the next layout on a second press</h3>
+          <p>Press <span class="kbd">⌃⌥⌘A</span> again within 2 seconds for the next layout. <span class="kbd">⌃⌥⌘Z</span> undoes a run of quick presses in one step.</p>
+          <div class="panel" data-fx="painterly-landscape" data-fx-seed="58" data-fx-params='{"drift":0,"speed":0,"blur":1,"brush":0.35,"slope":0,"hillY":0.3,"horizon":0.62}' data-fx-palette='{"bg":"#d9ccb7","surface":"#e9e0d2","ink":"#2a2622","accent":"#a8794a"}'>
+            <div class="lay lay--next" role="img" aria-label="Pressing Control Option Command A a second time within 2 seconds turns Master + Stack into three columns">
+              <div class="keys"><span>⌃</span><span>⌥</span><span>⌘</span><span>A</span></div>
+              <div class="lay__row">
+                <div class="scr scr--3"><i class="p"></i><i></i><i></i></div>
+                <span class="arrow"><svg viewBox="0 0 36 12" aria-hidden="true"><path d="M1 6h32M28 1.5 33 6l-5 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>2 s</span>
+                <div class="scr" style="grid-template:1fr/1fr 1fr 1fr"><i class="p"></i><i></i><i></i></div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section ground-surface" id="shortcuts" aria-labelledby="shortcuts-h">
+    <div class="wrap">
+      <div class="grid">
+        <div class="span-5 stack-5">
+          <div class="section-head"><h2 id="shortcuts-h">Window shortcuts and settings. <span class="muted">Every shortcut can be changed.</span></h2></div>
+          <div class="tabs" role="tablist" aria-label="ordino settings">
+            <button class="tab" type="button" role="tab" id="t-1" aria-selected="true" aria-controls="tab-1 screen-1">Snap one window</button>
+            <button class="tab" type="button" role="tab" id="t-2" aria-selected="false" aria-controls="tab-2 screen-2" tabindex="-1">Pick primary apps</button>
+            <button class="tab" type="button" role="tab" id="t-3" aria-selected="false" aria-controls="tab-3 screen-3" tabindex="-1">Set the basics</button>
+            <button class="tab" type="button" role="tab" id="t-4" aria-selected="false" aria-controls="tab-4 screen-4" tabindex="-1">Get updates</button>
+          </div>
+          <div role="tabpanel" id="tab-1" aria-labelledby="t-1"><p>Halves, corners, thirds, fourths, sixths, maximize and center. Press <span class="kbd">⌃⌥←</span> again to go from 1/2 to 2/3 to 1/3. Rectangle-style keys by default, Spectacle-style as a preset.</p></div>
+          <div role="tabpanel" id="tab-2" aria-labelledby="t-2" hidden><p>List the apps whose window always takes the large slot, in order. Apps you ignore are never moved.</p></div>
+          <div role="tabpanel" id="tab-3" aria-labelledby="t-3" hidden><p>Arrange the display under the pointer, try the next layout on a second press, and choose when a confirmation shows.</p></div>
+          <div role="tabpanel" id="tab-4" aria-labelledby="t-4" hidden><p>ordino checks, downloads and installs updates by itself, or when you press Check Now.</p></div>
+        </div>
+        <div class="frame frame--split span-6 start-7" role="img" aria-label="The ordino Settings window">
+          <div class="stage stage--fade-br">
+            <div class="at-corner" id="screen-1"><div class="shot"><img src="media/settings-shortcuts.webp" alt="" width="1520" height="1240" loading="lazy" decoding="async"></div></div>
+            <div class="at-corner" id="screen-2" hidden><div class="shot"><img src="media/settings-apps.webp" alt="" width="1520" height="1240" loading="lazy" decoding="async"></div></div>
+            <div class="at-corner" id="screen-3" hidden><div class="shot"><img src="media/settings-general.webp" alt="" width="1520" height="1240" loading="lazy" decoding="async"></div></div>
+            <div class="at-corner" id="screen-4" hidden><div class="shot"><img src="media/settings-updates.webp" alt="" width="1520" height="1240" loading="lazy" decoding="async"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="statement" data-moment="letters-assemble" aria-labelledby="statement-h">
+    <div class="wrap">
+      <h2 class="mo-la__type" id="statement-h">Every window, in its place.</h2>
+      <p class="mo-la__sub">Arranging a screen that is already arranged changes nothing. <span class="kbd">⌃⌥⌘R</span> rotates the windows through the slots.</p>
+      <div class="rot" role="img" aria-label="Control Option Command R moves Xcode, Safari and Figma through the three slots, one slot each press">
+        <div class="keys keys--lg"><span>⌃</span><span>⌥</span><span>⌘</span><span>R</span></div>
+        <div class="scr scr--3"><i class="p slot"><img loading="lazy" width="26" height="26" src="assets/icons/xcode.svg" alt=""></i><i class="slot"><img loading="lazy" width="26" height="26" src="assets/icons/safari.svg" alt=""></i><i class="slot"><img loading="lazy" width="18" height="26" src="assets/icons/figma.svg" alt=""></i></div>
+        <div class="scr scr--3"><i class="p slot"><img loading="lazy" width="26" height="26" src="assets/icons/safari.svg" alt=""></i><i class="slot"><img loading="lazy" width="18" height="26" src="assets/icons/figma.svg" alt=""></i><i class="slot"><img loading="lazy" width="26" height="26" src="assets/icons/xcode.svg" alt=""></i></div>
+        <div class="scr scr--3"><i class="p slot"><img loading="lazy" width="18" height="26" src="assets/icons/figma.svg" alt=""></i><i class="slot"><img loading="lazy" width="26" height="26" src="assets/icons/xcode.svg" alt=""></i><i class="slot"><img loading="lazy" width="26" height="26" src="assets/icons/safari.svg" alt=""></i></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="install" aria-labelledby="install-h">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="install-h">Install ordino in 3 steps. <span class="muted">macOS asks once.</span></h2>
+      </div>
+      <div class="grid">
+        <article class="card card--row card--open span-4 m-nolift">
+          <span class="step-num">1</span>
+          <h3>Drag the app to Applications</h3>
+          <p>Download the zip, double-click it and drag ordino into the Applications folder.</p>
+          <div class="panel">
+            <div class="inst" role="img" aria-label="The ordino zip file and the ordino app going into the Applications folder">
+              <div class="inst__drag">
+                <span class="file"><span class="file__zip"></span>ordino.zip</span>
+                <span class="arrow"><svg viewBox="0 0 36 12" aria-hidden="true"><path d="M1 6h32M28 1.5 33 6l-5 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <span class="file"><img loading="lazy" src="media/app-icon.webp" alt="" width="64" height="64">ordino</span>
+                <span class="arrow"><svg viewBox="0 0 36 12" aria-hidden="true"><path d="M1 6h32M28 1.5 33 6l-5 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <span class="file"><span class="file__folder"></span>Applications</span>
+              </div>
+            </div>
+          </div>
+        </article>
+        <article class="card card--row card--open span-4 m-nolift">
+          <span class="step-num">2</span>
+          <h3>Open the app with Open Anyway</h3>
+          <p>ordino is not notarized, so macOS can't verify the developer. Click Done, then Open Anyway in Privacy &amp; Security.</p>
+          <div class="panel">
+            <div class="inst" role="img" aria-label="System Settings, Privacy and Security: ordino was blocked, with the Open Anyway button">
+              <div class="sheet">
+                <span class="sheet__head">Privacy &amp; Security</span>
+                <div class="sheet__row"><span>“ordino” was blocked to protect your Mac.</span><span class="sheet__btn">Open Anyway</span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+        <article class="card card--row card--open span-4 m-nolift">
+          <span class="step-num">3</span>
+          <h3>Give the app Accessibility access</h3>
+          <p>The welcome window asks for Accessibility. The permission stays on through every update.</p>
+          <div class="panel">
+            <div class="inst" role="img" aria-label="System Settings, Accessibility: ordino switched on">
+              <div class="sheet">
+                <span class="sheet__head">Accessibility</span>
+                <div class="sheet__row"><span class="sheet__who"><img loading="lazy" src="media/app-icon.webp" alt="" width="22" height="22">ordino</span><span class="sw"></span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="faq" aria-labelledby="faq-h">
+    <div class="wrap">
+      <div class="grid">
+        <div class="section-head span-5 faq__head"><h2 id="faq-h">Questions about ordino</h2><p>Privacy, requirements and other window managers.</p><img class="faq__icon" src="media/app-icon.webp" alt="The ordino app icon" width="128" height="128" loading="lazy"></div>
+        <div class="faq span-6 start-7">
+          <div class="faq__item"><h3>Does the app record my screen?</h3><p>No. It uses only the Accessibility permission, to read window positions and move windows. There are no analytics and nothing leaves your Mac.</p></div>
+          <div class="faq__item"><h3>Which Macs does the app run on?</h3><p>Macs with macOS 14 Sonoma or later, Apple silicon and Intel. The app is universal and about 3.6 MB.</p></div>
+          <div class="faq__item"><h3>What does the app cost?</h3><p>Nothing. ordino is free and needs no account.</p></div>
+          <div class="faq__item"><h3>Will the app clash with Rectangle?</h3><p>When another window manager such as Rectangle is running, ordino leaves its window shortcuts unassigned. You can set them in Settings.</p></div>
+          <div class="faq__item"><h3>What if a window can't get that small?</h3><p>ordino learns each window's minimum size. Its neighbours shrink instead of overlapping it.</p></div>
+          <div class="faq__item"><h3>How do app updates arrive?</h3><p>On their own. Every update is signed with EdDSA, and ordino refuses one that isn't.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer closing footer--statement" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--word">
+      <div class="section-head--split">
+        <div><h2 id="close-h">Arrange your Mac in one keystroke</h2></div>
+        <a class="btn btn--primary" href="https://xsugra.github.io/ordino-updates/archives/ordino-0.2.0-beta.1.zip" data-download>Download ordino<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+      </div>
+      <p class="close__word" aria-hidden="true"><svg viewBox="0 0 145.8 35" xmlns="http://www.w3.org/2000/svg"><g transform="translate(0 10.3)"><g fill="none" stroke="currentColor" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12.3" cy="12" r="9.9"/><path d="M32.6 2.4V21.6M32.6 12A9.6 9.6 0 0 1 42.2 2.4H43.8"/><circle cx="62.1" cy="12" r="9.9"/><path d="M72 -7.6V21.6"/><path d="M83 2.4V21.6"/><path d="M94 2.4V21.6M94 12A9.6 9.6 0 0 1 113.2 12V21.6"/><circle cx="133.5" cy="12" r="9.9"/></g><circle cx="83" cy="-7.3" r="2.7" fill="currentColor"/></g></svg></p>
+    </div>
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-6 footer__col"><h3>Product</h3><ul><li><a href="#menu">Menu</a></li><li><a href="#layouts">Layouts</a></li><li><a href="#shortcuts">Shortcuts</a></li></ul></div>
+        <div class="span-6 footer__col"><h3>Get started</h3><ul><li><a href="#install">Install</a></li><li><a href="#faq">Questions</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; 2026 ordino, a free menu bar app for Mac. Not affiliated with Apple. Product names and logos are trademarks of their owners.</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="assets/system.js"></script>
+<script type="module" src="assets/motion/motion.js"></script>
+<script type="module" src="assets/layout/layout.js"></script>
+<script type="module" src="site.js"></script>
+</body>
+</html>

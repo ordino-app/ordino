@@ -20,36 +20,72 @@ struct GeneralPane: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Launch ordino at login", isOn: $settings.launchAtLogin)
+                ToggleRow(
+                    symbol: "power", title: "Launch at login",
+                    help: "Start ordino when you log in, so your shortcuts always work.",
+                    isOn: $settings.launchAtLogin)
                 if settings.launchAtLoginNeedsApproval {
-                    LabeledContent("macOS needs your approval in Login Items.") {
-                        Button("Open Login Items…") { SMAppService.openSystemSettingsLoginItems() }
+                    SubGroup {
+                        SettingRow(symbol: "exclamationmark.triangle", title: "Needs your approval in Login Items") {
+                            Button("Open Login Items…") { SMAppService.openSystemSettingsLoginItems() }
+                        }
+                        .foregroundStyle(.orange)
                     }
-                    .foregroundStyle(.orange)
                 }
-                Toggle("Show ordino in the menu bar", isOn: $settings.showMenuBarIcon)
+                ToggleRow(
+                    symbol: "menubar.rectangle", title: "Show in the menu bar",
+                    help: "When hidden, open ordino again from Applications or Spotlight to get back to Settings.",
+                    isOn: $settings.showMenuBarIcon)
+            } header: {
+                SectionTitle("Startup", symbol: "sunrise")
             } footer: {
                 if let error = settings.launchAtLoginError {
                     Footnote("Couldn't change launch at login: \(error)")
-                } else if !settings.showMenuBarIcon {
-                    Footnote("Open ordino again from Applications or Spotlight to get back to Settings.")
                 }
-            }
-
-            Section("Arranging") {
-                Picker("Arrange", selection: $settings.arrangeTarget) {
-                    ForEach(ArrangeTarget.allCases) { Text($0.title).tag($0) }
-                }
-                Toggle("Press the shortcut again to try the next layout", isOn: $settings.cycleOnRepeat)
-            }
-
-            Section("Feedback") {
-                Toggle("Show a confirmation after arranging", isOn: $settings.showArrangeHUD)
-                Toggle("Show a confirmation after window actions", isOn: $settings.showActionHUD)
             }
 
             Section {
-                LabeledContent("Accessibility") {
+                SettingRow(
+                    symbol: "display", title: "Display to arrange",
+                    help:
+                        "Arrange works on one display at a time: the one under the pointer, or the one showing the window you're working in."
+                ) {
+                    Picker("Display to arrange", selection: $settings.arrangeTarget) {
+                        ForEach(ArrangeTarget.allCases) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                }
+                ToggleRow(
+                    symbol: "arrow.triangle.2.circlepath", title: "Press again for the next layout",
+                    help:
+                        "Pressing the arrange shortcut again within 2 seconds switches to the next layout for the same windows.",
+                    isOn: $settings.cycleOnRepeat)
+            } header: {
+                SectionTitle("Arranging", symbol: "rectangle.split.2x2")
+            }
+
+            Section {
+                ToggleRow(
+                    symbol: "checkmark.bubble", title: "Confirm arranging",
+                    help:
+                        "A short message near the top of the screen: how many windows, which layout, and how to undo.",
+                    isOn: $settings.showArrangeHUD)
+                ToggleRow(
+                    symbol: "text.bubble", title: "Confirm window actions",
+                    help:
+                        "Also show a message after single-window actions like Left Half or Maximize. Problems are always shown.",
+                    isOn: $settings.showActionHUD)
+            } header: {
+                SectionTitle("Feedback", symbol: "bell")
+            }
+
+            Section {
+                SettingRow(
+                    symbol: "hand.raised", title: "Accessibility",
+                    help:
+                        "ordino uses Accessibility only to read window positions and move windows. It never records your screen, and nothing leaves your Mac."
+                ) {
                     if trusted {
                         Label("Allowed", systemImage: "checkmark.circle.fill")
                             .foregroundStyle(.green)
@@ -58,11 +94,7 @@ struct GeneralPane: View {
                     }
                 }
             } header: {
-                Text("Permissions")
-            } footer: {
-                Footnote(
-                    "ordino uses Accessibility only to read window positions and move windows. It never records your screen."
-                )
+                SectionTitle("Permissions", symbol: "lock")
             }
         }
         .formStyle(.grouped)
@@ -83,36 +115,51 @@ struct LayoutsPane: View {
                 LayoutPreviewDiagram(gap: settings.gap, margin: settings.outerMargin, ratio: settings.masterRatio)
                     .frame(height: 150)
                     .frame(maxWidth: .infinity)
-                    .listRowBackground(Color.clear)
                     .accessibilityHidden(true)
             }
 
-            Section("Spacing") {
-                SliderRow(title: "Gap between windows", value: $settings.gap, range: 0...32, step: 2, unit: "pt")
+            Section {
                 SliderRow(
-                    title: "Margin around the screen", value: $settings.outerMargin, range: 0...48, step: 2, unit: "pt")
-            }
-
-            Section("Master + Stack") {
+                    symbol: "arrow.left.and.right", title: "Gap between windows",
+                    help: "Space between windows that sit side by side.",
+                    value: $settings.gap, range: 0...32, step: 2, unit: "pt")
                 SliderRow(
-                    title: "Primary window width", value: $settings.masterRatio, range: 0.3...0.8, step: 0.05,
-                    format: { "\(Int(($0 * 100).rounded())) %" })
+                    symbol: "rectangle.dashed", title: "Margin around the screen",
+                    help: "Space between the windows and the edges of the screen, menu bar and Dock.",
+                    value: $settings.outerMargin, range: 0...48, step: 2, unit: "pt")
+            } header: {
+                SectionTitle("Spacing", symbol: "square.dashed")
             }
 
             Section {
-                Stepper(value: $settings.maxWindows, in: 2...16) {
-                    LabeledContent("Windows per display", value: "\(settings.maxWindows)")
+                SliderRow(
+                    symbol: "sidebar.left", title: "Primary window width",
+                    help:
+                        "How much of the screen the primary window takes in Master + Stack. The others share the rest.",
+                    value: $settings.masterRatio, range: 0.3...0.8, step: 0.05,
+                    format: { "\(Int(($0 * 100).rounded())) %" })
+            } header: {
+                SectionTitle("Master + Stack", symbol: "sidebar.left")
+            }
+
+            Section {
+                SettingRow(
+                    symbol: "square.grid.3x3", title: "Windows per display",
+                    help: "Windows beyond the limit stay where they are, so very busy screens stay usable."
+                ) {
+                    Stepper("\(settings.maxWindows)", value: $settings.maxWindows, in: 2...16)
+                        .monospacedDigit()
+                        .fixedSize()
                 }
-                LabeledContent("Remembered layouts") {
+                SettingRow(
+                    symbol: "memories", title: "Remembered layouts",
+                    help: "When you switch to another layout, ordino remembers it for that display and window count."
+                ) {
                     Button("Forget…") { confirmForget = true }
                         .disabled(settings.preferredLayouts.isEmpty)
                 }
             } header: {
-                Text("Windows")
-            } footer: {
-                Footnote(
-                    "Windows beyond the limit stay where they are. ordino remembers the layout you pick for each display and window count."
-                )
+                SectionTitle("Windows", symbol: "macwindow.on.rectangle")
             }
 
             Section {
@@ -154,10 +201,15 @@ struct LayoutPreviewDiagram: View {
                     .frame(width: size.width, height: size.height)
                     .offset(x: origin.x, y: origin.y)
                 ForEach(Array(rects.enumerated()), id: \.offset) { index, r in
+                    // A visible seam even at a 0 pt gap, so the tiles never fuse.
+                    let rect = CGRect(
+                        x: origin.x + r.x * scale, y: origin.y + r.y * scale, width: r.w * scale, height: r.h * scale
+                    )
+                    .insetBy(dx: 2, dy: 2)
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
                         .fill(index == 0 ? Color(red: 0.85, green: 0.40, blue: 0.23) : Color(white: 0.92))
-                        .frame(width: max(1, r.w * scale), height: max(1, r.h * scale))
-                        .offset(x: origin.x + r.x * scale, y: origin.y + r.y * scale)
+                        .frame(width: max(1, rect.width), height: max(1, rect.height))
+                        .offset(x: rect.minX, y: rect.minY)
                         .animation(.smooth(duration: 0.2), value: r)
                 }
             }
@@ -180,7 +232,9 @@ struct LayoutPreviewDiagram: View {
 }
 
 struct SliderRow: View {
+    var symbol: String = "slider.horizontal.3"
     let title: String
+    var help: String?
     @Binding var value: Double
     let range: ClosedRange<Double>
     let step: Double
@@ -188,7 +242,7 @@ struct SliderRow: View {
     var format: ((Double) -> String)?
 
     var body: some View {
-        LabeledContent(title) {
+        SettingRow(symbol: symbol, title: title, help: help) {
             HStack(spacing: 10) {
                 Slider(
                     value: Binding(
@@ -196,13 +250,13 @@ struct SliderRow: View {
                         set: { value = min(range.upperBound, max(range.lowerBound, ($0 / step).rounded() * step)) }),
                     in: range
                 )
-                .frame(width: 180)
+                .frame(width: 160)
                 .accessibilityLabel(title)
                 .accessibilityValue(label)
                 Text(label)
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
-                    .frame(width: 48, alignment: .trailing)
+                    .frame(width: 44, alignment: .trailing)
                     .accessibilityHidden(true)
             }
         }
@@ -219,6 +273,12 @@ struct ShortcutsPane: View {
     @State private var pendingPreset: ShortcutPreset?
     @State private var confirmClear = false
     @State private var resetToken = 0
+
+    static let sectionSymbols: [String: String] = [
+        "Halves": "rectangle.lefthalf.filled", "Corners": "square.split.2x2", "Thirds": "rectangle.split.3x1",
+        "Fourths": "rectangle.split.3x1", "Sixths": "square.grid.3x2", "Size": "arrow.up.left.and.arrow.down.right",
+        "Position": "arrow.up.and.down.and.arrow.left.and.right", "Displays": "display.2",
+    ]
 
     private let sections: [(String, [WindowAction])] = [
         ("Halves", [.leftHalf, .rightHalf, .centerHalf, .topHalf, .bottomHalf]),
@@ -255,19 +315,23 @@ struct ShortcutsPane: View {
                 Footnote("Click a shortcut to record a new one. Press Delete while recording to remove it.")
             }
 
-            Section("Arrange") {
+            Section {
                 ForEach(Command.arrangeCommands) { command in
                     ShortcutRow(title: command.title, icon: nil, name: command.shortcutName)
                 }
+            } header: {
+                SectionTitle("Arrange", symbol: "rectangle.split.2x2")
             }
 
             ForEach(sections, id: \.0) { title, actions in
-                Section(title) {
+                Section {
                     ForEach(actions) { action in
                         ShortcutRow(
                             title: action.title, icon: ActionIcons.image(for: action),
                             name: Command.window(action).shortcutName)
                     }
+                } header: {
+                    SectionTitle(title, symbol: Self.sectionSymbols[title] ?? "macwindow")
                 }
             }
 
@@ -343,7 +407,7 @@ struct AppsPane: View {
                     bundleIDs: $settings.primaryApps, reorderable: true,
                     emptyText: "No apps yet. The active window is primary.")
             } header: {
-                Text("Always primary")
+                SectionTitle("Always primary", symbol: "star")
             } footer: {
                 Footnote(
                     "With Master + Stack, the first of these apps that has a window on the display gets the large slot. Drag, or right-click, to change the order."
@@ -353,7 +417,7 @@ struct AppsPane: View {
             Section {
                 AppList(bundleIDs: $settings.ignoredApps, reorderable: false, emptyText: "No ignored apps.")
             } header: {
-                Text("Ignored")
+                SectionTitle("Ignored", symbol: "eye.slash")
             } footer: {
                 Footnote("ordino never moves windows of these apps, neither when arranging nor with window actions.")
             }
@@ -489,8 +553,9 @@ struct UpdatesPane: View {
         Form {
             if updater.isAvailable {
                 Section {
-                    Toggle(
-                        "Check for updates automatically",
+                    ToggleRow(
+                        symbol: "clock.arrow.circlepath", title: "Check automatically",
+                        help: "ordino looks for a new version once a day.",
                         isOn: Binding(
                             get: {
                                 _ = tick
@@ -500,37 +565,43 @@ struct UpdatesPane: View {
                                 updater.automaticallyChecks = $0
                                 tick += 1
                             }))
-                    Toggle(
-                        "Download and install updates automatically",
-                        isOn: Binding(
-                            get: {
-                                _ = tick
-                                return updater.automaticallyDownloads
-                            },
-                            set: {
-                                updater.automaticallyDownloads = $0
-                                tick += 1
-                            })
-                    )
-                    .disabled(!updater.automaticallyChecks)
+                    if updater.automaticallyChecks {
+                        SubGroup {
+                            ToggleRow(
+                                symbol: "arrow.down.to.line", title: "Download and install automatically",
+                                help: "Updates install when you quit ordino. Without this, ordino asks first.",
+                                isOn: Binding(
+                                    get: {
+                                        _ = tick
+                                        return updater.automaticallyDownloads
+                                    },
+                                    set: {
+                                        updater.automaticallyDownloads = $0
+                                        tick += 1
+                                    }))
+                        }
+                    }
                     // A beta build always follows the beta channel (see Updater.allowedChannels).
-                    Toggle(
-                        "Include beta versions",
+                    ToggleRow(
+                        symbol: "testtube.2", title: "Include beta versions",
+                        help: Updater.isPrerelease
+                            ? "You're running a beta, so you get beta updates until the next stable release."
+                            : "Get new features earlier. Betas are tested, but may have rough edges.",
                         isOn: Updater.isPrerelease ? .constant(true) : $settings.betaUpdates
                     )
                     .disabled(Updater.isPrerelease)
-                    if Updater.isPrerelease {
-                        Footnote("You're running a beta, so you get beta updates until the next stable release.")
-                    }
+                } header: {
+                    SectionTitle("Updates", symbol: "arrow.down.circle")
                 } footer: {
-                    Footnote(
-                        "Updates are signed; ordino refuses any update that isn't. Your Accessibility permission stays on."
-                    )
+                    Footnote("Every update is signed, and ordino refuses one that isn't. Accessibility stays allowed.")
                 }
                 Section {
-                    LabeledContent("Current version", value: AboutPane.versionString)
-                    LabeledContent("Last checked") {
+                    SettingRow(symbol: "shippingbox", title: "Version") {
+                        Text(AboutPane.versionString).foregroundStyle(.secondary)
+                    }
+                    SettingRow(symbol: "clock", title: "Last checked") {
                         Text(updater.lastCheck.map { $0.formatted(.relative(presentation: .named)) } ?? "Never")
+                            .foregroundStyle(.secondary)
                     }
                     HStack {
                         Spacer()
@@ -540,6 +611,8 @@ struct UpdatesPane: View {
                         }
                         .disabled(!updater.canCheck)
                     }
+                } header: {
+                    SectionTitle("This Mac", symbol: "laptopcomputer")
                 }
             } else {
                 Section {
