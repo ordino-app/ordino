@@ -1,58 +1,170 @@
 import Foundation
 import LayoutEngine
+import Observation
 import ServiceManagement
 
-/// Persistent user settings (UserDefaults).
+/// Which display "Arrange" works on.
+enum ArrangeTarget: String, CaseIterable, Identifiable, Sendable {
+    case displayUnderMouse
+    case displayWithFocusedWindow
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .displayUnderMouse: "Display under the pointer"
+        case .displayWithFocusedWindow: "Display with the active window"
+        }
+    }
+}
+
+/// All user settings. Observable, so the Settings window and the app react to
+/// changes immediately; every change is written to UserDefaults right away.
 @MainActor
+@Observable
 final class Settings {
-    private let defaults = UserDefaults.standard
+    @ObservationIgnored private let defaults: UserDefaults
+    /// Called after any change that affects arranging (gaps, margins, ratios...).
+    @ObservationIgnored var onLayoutChange: (() -> Void)?
+
+    // MARK: Layout
 
     var gap: Double {
-        get { defaults.object(forKey: "gap") as? Double ?? 8 }
-        set { defaults.set(newValue, forKey: "gap") }
-    }
-
-    var preferredLayouts: [String: LayoutID] {
-        get {
-            let raw = defaults.dictionary(forKey: "preferredLayouts") as? [String: String] ?? [:]
-            return raw.compactMapValues(LayoutID.init(rawValue:))
+        didSet {
+            save(gap, "gap")
+            onLayoutChange?()
         }
-        set { defaults.set(newValue.mapValues(\.rawValue), forKey: "preferredLayouts") }
     }
+    var outerMargin: Double {
+        didSet {
+            save(outerMargin, "outerMargin")
+            onLayoutChange?()
+        }
+    }
+    var masterRatio: Double {
+        didSet {
+            save(masterRatio, "masterRatio")
+            onLayoutChange?()
+        }
+    }
+    var maxWindows: Int {
+        didSet {
+            save(maxWindows, "maxWindows")
+            onLayoutChange?()
+        }
+    }
+    /// Pressing Arrange again within 2 s switches to the next layout.
+    var cycleOnRepeat: Bool {
+        didSet {
+            save(cycleOnRepeat, "cycleOnRepeat")
+            onLayoutChange?()
+        }
+    }
+    var arrangeTarget: ArrangeTarget { didSet { save(arrangeTarget.rawValue, "arrangeTarget") } }
 
-    /// Receive beta (prerelease) updates through Sparkle's "beta" channel.
-    var betaUpdates: Bool {
-        get { defaults.bool(forKey: "betaUpdates") }
-        set { defaults.set(newValue, forKey: "betaUpdates") }
-    }
+    // MARK: Feedback and appearance
+
+    var showArrangeHUD: Bool { didSet { save(showArrangeHUD, "showArrangeHUD") } }
+    var showActionHUD: Bool { didSet { save(showActionHUD, "showActionHUD") } }
+    var showMenuBarIcon: Bool { didSet { save(showMenuBarIcon, "showMenuBarIcon") } }
+
+    // MARK: Apps
 
     /// Apps whose window is always the primary one when present, in priority order.
-    var primaryApps: [String] {
-        get { defaults.stringArray(forKey: "primaryApps") ?? [] }
-        set { defaults.set(newValue, forKey: "primaryApps") }
+    var primaryApps: [String] { didSet { save(primaryApps, "primaryApps") } }
+    /// Apps ordino never moves.
+    var ignoredApps: [String] { didSet { save(ignoredApps, "excludedBundleIDs") } }
+
+    // MARK: Updates and shortcuts
+
+    var betaUpdates: Bool { didSet { save(betaUpdates, "betaUpdates") } }
+    var shortcutPreset: ShortcutPreset { didSet { save(shortcutPreset.rawValue, "shortcutPreset") } }
+
+    /// Remembered layout per (display, window count). Written by the coordinator.
+    var preferredLayouts: [String: LayoutID] {
+        didSet { save(preferredLayouts.mapValues(\.rawValue), "preferredLayouts") }
     }
 
-    var excludedBundleIDs: Set<String> {
-        get { Set(defaults.stringArray(forKey: "excludedBundleIDs") ?? []) }
-        set { defaults.set(Array(newValue).sorted(), forKey: "excludedBundleIDs") }
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        gap = defaults.object(forKey: "gap") as? Double ?? 8
+        outerMargin =
+            defaults.object(forKey: "outerMargin") as? Double ?? (defaults.object(forKey: "gap") as? Double ?? 8)
+        masterRatio = defaults.object(forKey: "masterRatio") as? Double ?? 0.55
+        maxWindows = defaults.object(forKey: "maxWindows") as? Int ?? 9
+        cycleOnRepeat = defaults.object(forKey: "cycleOnRepeat") as? Bool ?? true
+        arrangeTarget =
+            defaults.string(forKey: "arrangeTarget").flatMap(ArrangeTarget.init(rawValue:)) ?? .displayUnderMouse
+        showArrangeHUD = defaults.object(forKey: "showArrangeHUD") as? Bool ?? true
+        showActionHUD = defaults.object(forKey: "showActionHUD") as? Bool ?? false
+        showMenuBarIcon = defaults.object(forKey: "showMenuBarIcon") as? Bool ?? true
+        primaryApps = defaults.stringArray(forKey: "primaryApps") ?? []
+        ignoredApps = defaults.stringArray(forKey: "excludedBundleIDs") ?? []
+        betaUpdates = defaults.bool(forKey: "betaUpdates")
+        // ⌃⌥ arrows by default: ⌥⌘ arrows (Spectacle) would take over tab switching in browsers.
+        shortcutPreset = defaults.string(forKey: "shortcutPreset").flatMap(ShortcutPreset.init(rawValue:)) ?? .rectangle
+        let raw = defaults.dictionary(forKey: "preferredLayouts") as? [String: String] ?? [:]
+        preferredLayouts = raw.compactMapValues(LayoutID.init(rawValue:))
+    }
+
+    /// Settings from 0.1.0-beta.2 or earlier exist (this is an update, not a new install).
+    var isUpgradeFromEarlierVersion: Bool {
+        ["gap", "preferredLayouts", "primaryApps", "excludedBundleIDs", "betaUpdates", "SULastCheckTime"]
+            .contains { defaults.object(forKey: $0) != nil }
+    }
+
+    /// True until shortcuts have been set up once (first launch).
+    var needsShortcutSetup: Bool {
+        get { !defaults.bool(forKey: "shortcutsInitialized") }
+        set { defaults.set(!newValue, forKey: "shortcutsInitialized") }
     }
 
     var preferences: LayoutPreferences {
         var p = LayoutPreferences()
         p.gap = gap
-        p.outerPadding = .init(all: gap)
+        p.outerPadding = .init(all: outerMargin)
+        p.masterRatio = masterRatio
+        p.maxWindows = maxWindows
         return p
+    }
+
+    var windowActionEngine: WindowActionEngine {
+        WindowActionEngine(gap: gap, outerPadding: .init(all: outerMargin))
+    }
+
+    /// Last error from changing "launch at login", shown in Settings.
+    var launchAtLoginError: String?
+
+    /// macOS wants the user to approve ordino in System Settings › Login Items.
+    var launchAtLoginNeedsApproval: Bool {
+        access(keyPath: \.launchAtLoginChangeCount)
+        return SMAppService.mainApp.status == .requiresApproval
     }
 
     /// Launch at login through SMAppService. Only works from an .app bundle.
     var launchAtLogin: Bool {
-        get { SMAppService.mainApp.status == .enabled }
+        get {
+            access(keyPath: \.launchAtLoginChangeCount)
+            return SMAppService.mainApp.status == .enabled
+        }
         set {
             do {
                 if newValue { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+                launchAtLoginError = nil
             } catch {
-                NSLog("ordino: launch at login change failed: \(error.localizedDescription)")
+                launchAtLoginError = error.localizedDescription
             }
+            launchAtLoginChangeCount += 1
         }
     }
+    private var launchAtLoginChangeCount = 0
+
+    func resetLayoutDefaults() {
+        gap = 8
+        outerMargin = 8
+        masterRatio = 0.55
+        maxWindows = 9
+        cycleOnRepeat = true
+    }
+
+    private func save(_ value: Any, _ key: String) { defaults.set(value, forKey: key) }
 }

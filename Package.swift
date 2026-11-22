@@ -14,7 +14,9 @@ let package = Package(
     ],
     dependencies: [
         // Auto-update. Pinned exactly; bump deliberately (Dependabot opens PRs).
-        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1")
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1"),
+        // User-configurable global shortcuts with a native recorder.
+        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", exact: "3.1.0"),
     ],
     targets: [
         // Pure value types. Foundation only.
@@ -48,6 +50,7 @@ let package = Package(
             dependencies: [
                 "Geometry", "LayoutEngine", "WindowKit", "ArrangeCore",
                 .product(name: "Sparkle", package: "Sparkle"),
+                .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts"),
             ],
             linkerSettings: [
                 // Sparkle.framework is embedded in ordino.app/Contents/Frameworks.

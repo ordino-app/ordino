@@ -10,14 +10,16 @@
 make run-app     # builds build/ordino.app and launches it
 ```
 
-| Shortcut | Action |
+| Default shortcut | Action |
 |---|---|
-| ⌃⌥⌘A | Arrange the display under the mouse. Press again within 2 s for the next layout |
-| ⌃⌥⌘→ / ⌃⌥⌘← | Next / previous layout |
+| ⌃⌥⌘A | Arrange the display. Press again within 2 s for the next layout |
+| ⌃⌥⌘] / ⌃⌥⌘[ | Next / previous layout |
 | ⌃⌥⌘R | Rotate windows through the slots |
 | ⌃⌥⌘Z | Undo (a run of quick presses is one step) |
 
-In the menu: hover or use ←/→ to preview a layout, Return or 1-9 to apply, ⌘Z to undo, Esc to close.
+**Window actions** for the active window, like Rectangle: halves, corners, thirds, fourths, sixths, maximize, almost maximize, maximize height, larger, smaller, center, move to edge, restore, next/previous display. Pressing a half again cycles ½ → ⅔ → ⅓. They're in the menu, and get shortcuts from a preset (Rectangle-style ⌃⌥ arrows by default, Spectacle-style ⌥⌘ arrows, or none). Every shortcut can be changed in **Settings › Shortcuts**. If another window manager is running, ordino leaves window shortcuts unassigned so they don't collide.
+
+**Settings** (⌘, from the menu): launch at login, menu bar icon, which display to arrange, confirmations, gaps and margins with a live preview, primary-window width, window limit, shortcuts, always-primary and ignored apps, updates, diagnostics.
 
 **Primary window.** With Master + Stack (the default for 3 windows) the primary window gets the large slot. By default that's the window you were working in. In the menu you can pick another one (or click its slot in the preview), and tick "Always make <app> primary" to make an app win whenever it's on screen.
 

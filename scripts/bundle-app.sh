@@ -53,12 +53,25 @@ echo "==> swift build ($CONFIG${UNIVERSAL:+, universal})"
 swift build -c "$CONFIG" --product ordino ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}
 BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"})"
 BIN="$BIN_DIR/ordino"
+# Resource bundles are copied into Contents/Resources, which the generated
+# Bundle.module accessor only searches with the swiftbuild build system
+# (products under .build/out). The legacy native system would look elsewhere.
+case "$BIN_DIR" in
+  */.build/out/*) ;;
+  *) echo "Unexpected build output at $BIN_DIR: build with the swiftbuild build system (Xcode 26+)." >&2; exit 1 ;;
+esac
 
 echo "==> Assembling $APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 cp "$BIN" "$APP/Contents/MacOS/ordino"
 FW="$APP/Contents/Frameworks/Sparkle.framework"
 ditto "$BIN_DIR/Sparkle.framework" "$FW"
+cp -R "$ROOT/Resources/." "$APP/Contents/Resources/"
+# SwiftPM resource bundles (e.g. KeyboardShortcuts' localized strings). Without
+# them Bundle.module traps the first time a dependency loads a resource.
+for bundle in "$BIN_DIR"/*.bundle; do
+  [ -d "$bundle" ] && ditto "$bundle" "$APP/Contents/Resources/$(basename "$bundle")"
+done
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -68,6 +81,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleName</key><string>ordino</string>
   <key>CFBundleDisplayName</key><string>ordino</string>
   <key>CFBundleExecutable</key><string>ordino</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$BUILD_NUMBER</string>

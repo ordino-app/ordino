@@ -1,355 +1,356 @@
 import AppKit
 import ArrangeCore
+import KeyboardShortcuts
 import LayoutEngine
 import SwiftUI
 import WindowKit
 
-/// State shown in the menu panel.
+/// The status item and its native menu: an arrange card on top, then window
+/// actions with their live shortcuts (like Rectangle), then app commands.
+///
+/// Opening an NSMenu doesn't activate ordino, so the user's app stays
+/// frontmost and its focused window is the one actions apply to.
 @MainActor
-@Observable
-final class MenuModel {
-    var trusted = AccessibilityPermission.isTrusted
-    var preview: ArrangeCoordinator.Preview?
-    /// Layout picked in the alternatives row by hover, arrow keys or 1-9.
-    var selectedLayout: LayoutID?
-    /// Selection that survives the mouse leaving the alternatives row
-    /// (set by arrow keys or by picking a primary window).
-    var stickyLayout: LayoutID?
-    var selectedPreview: ArrangeCoordinator.Preview?
-    var gap: Double = 8
-    var launchAtLogin = false
-    var canUndo = false
-    var arrangeHint: String? = "⌃⌥⌘A"
-    /// Window the user picked as primary in this menu session (`nil` = automatic).
-    var primaryOverride: WindowID?
-    var alwaysPrimaryApps: [String] = []
-    var updatesAvailable = false
-    var updateAvailable = false
-    var canCheckForUpdates = false
-    var betaUpdates = false
-    var version = ""
-
-    var shortcutWarning: String?
-
-    var shownPreview: ArrangeCoordinator.Preview? { selectedPreview ?? preview }
-    /// The layout Arrange will apply: exactly what the thumbnail shows.
-    var layoutToApply: LayoutID? { shownPreview?.plan.layout }
-}
-
-/// A panel that takes clicks and keys without activating ordino, so the user's
-/// app stays frontmost and its focused window stays the master candidate.
-final class NonActivatingPanel: NSPanel {
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { false }
-}
-
-@MainActor
-final class MenuController: NSObject {
+final class MenuController: NSObject, NSMenuDelegate {
     private unowned let app: AppDelegate
-    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-    private let model = MenuModel()
-    private var panel: NonActivatingPanel?
-    private var monitors: [Any] = []
-    private var observers: [(NotificationCenter, NSObjectProtocol)] = []
+    private var statusItem: NSStatusItem?
+    private let menu = NSMenu()
+    private let card = MenuCardModel()
+    private var cardHost: NSHostingView<MenuCard>?
     /// Captured when the menu opens, so preview and arrange agree.
     private var focusedID: WindowID?
     private var display: DisplaySnapshot?
+    private var primaryOverride: WindowID?
 
     init(app: AppDelegate) {
         self.app = app
         super.init()
-        if let button = statusItem.button {
-            let image = NSImage(systemSymbolName: "rectangle.split.2x2", accessibilityDescription: "ordino")
-            image?.isTemplate = true
-            button.image = image
-            button.target = self
-            button.action = #selector(toggle)
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-            button.setAccessibilityLabel("ordino")
+        menu.delegate = self
+        menu.autoenablesItems = false
+        setVisible(app.settings.showMenuBarIcon)
+    }
+
+    func setVisible(_ visible: Bool) {
+        if visible, statusItem == nil {
+            let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+            item.menu = menu
+            item.button?.setAccessibilityLabel("ordino")
+            statusItem = item
+            refreshIcon()
+        } else if !visible, let item = statusItem {
+            NSStatusBar.system.removeStatusItem(item)
+            statusItem = nil
         }
     }
 
-    var isOpen: Bool { panel?.isVisible == true }
-
-    /// A small dot on the menu bar icon when an update is waiting.
-    private func updateStatusIcon() {
-        let name = app.updater.updateAvailable ? "rectangle.split.2x2.fill" : "rectangle.split.2x2"
-        let image = NSImage(systemSymbolName: name, accessibilityDescription: "ordino")
-        image?.isTemplate = true
-        statusItem.button?.image = image
-        statusItem.button?.setAccessibilityLabel(app.updater.updateAvailable ? "ordino, update available" : "ordino")
-    }
-
-    @objc private func toggle() {
-        if isOpen { close() } else { show() }
-    }
-
+    /// Opens the menu programmatically (relaunching ordino from Finder).
     func show() {
-        focusedID = WindowDiscovery.focusedWindowID()
-        display = app.backend.targetDisplay()
-        model.selectedLayout = nil
-        model.selectedPreview = nil
-        model.primaryOverride = nil
-        model.stickyLayout = nil
-        let panel = self.panel ?? makePanel()
-        self.panel = panel
-        refresh(force: true)
-        position(panel)
-        panel.orderFrontRegardless()
-        panel.makeKey()
-        installMonitors()
+        statusItem?.button?.performClick(nil)
     }
 
-    func close() {
-        guard let panel, panel.isVisible else { return }
-        panel.orderOut(nil)
-        removeMonitors()
-        model.selectedLayout = nil
-        model.selectedPreview = nil
-    }
+    func refresh() { refreshIcon() }
 
-    /// Updates the menu. The (comparatively expensive) preview is only computed
-    /// while the panel is visible.
-    func refresh(force: Bool = false) {
-        model.trusted = AccessibilityPermission.isTrusted
-        model.gap = app.settings.gap
-        model.launchAtLogin = app.settings.launchAtLogin
-        model.canUndo = app.coordinator.canUndo
-        model.alwaysPrimaryApps = app.settings.primaryApps
-        model.updatesAvailable = app.updater.isAvailable
-        model.updateAvailable = app.updater.updateAvailable
-        model.canCheckForUpdates = app.updater.canCheck
-        model.betaUpdates = app.settings.betaUpdates
-        let info = Bundle.main.infoDictionary
-        model.version = (info?["CFBundleShortVersionString"] as? String).map { "Version \($0)" } ?? "Development build"
-        updateStatusIcon()
-        model.arrangeHint = app.arrangeShortcutAvailable ? "⌃⌥⌘A" : nil
-        model.shortcutWarning =
-            app.unavailableShortcuts.isEmpty
-            ? nil
-            : "\(app.unavailableShortcuts.joined(separator: ", ")) already used by another app"
-        guard force || isOpen else { return }
-        model.preview =
-            model.trusted
-            ? app.coordinator.preview(focusedID: focusedID, primaryID: model.primaryOverride, display: display) : nil
-        // Forget a picked window that has since closed or left the display.
-        if let id = model.primaryOverride, model.preview?.windowIDs.contains(id) != true {
-            model.primaryOverride = nil
+    private func refreshIcon() {
+        guard let button = statusItem?.button else { return }
+        let updateWaiting = app.updater.updateAvailable
+        var image = Bundle.main.image(forResource: "MenuBarIcon")
+        if image == nil || updateWaiting {
+            image = NSImage(
+                systemSymbolName: updateWaiting ? "rectangle.split.2x2.fill" : "rectangle.split.2x2",
+                accessibilityDescription: "ordino")
         }
-        if let selected = model.selectedLayout { select(selected) }
-        resizePanel()
+        image?.isTemplate = true
+        button.image = image
+        button.setAccessibilityLabel(updateWaiting ? "ordino, update available" : "ordino")
+    }
+
+    // MARK: NSMenuDelegate
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        focusedID = WindowDiscovery.focusedWindowID()
+        display = app.arrangeDisplay()
+        primaryOverride = nil
+        card.hoveredLayout = nil
+        card.hoverPreview = nil
+        rebuild()
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        card.hoverPreview = nil
+        card.hoveredLayout = nil
+    }
+
+    // MARK: Building the menu
+
+    private func rebuild() {
+        menu.removeAllItems()
+        let trusted = AccessibilityPermission.isTrusted
+
+        if trusted {
+            card.preview = app.coordinator.preview(focusedID: focusedID, display: display)
+            menu.addItem(cardItem())
+            menu.addItem(.separator())
+            addArrangeItems()
+        } else {
+            let grant = item("Grant Accessibility Access…", symbol: "exclamationmark.triangle") { [weak self] in
+                self?.app.showOnboarding()
+            }
+            menu.addItem(grant)
+            let note = NSMenuItem(title: "ordino needs it to move windows.", action: nil, keyEquivalent: "")
+            note.isEnabled = false
+            menu.addItem(note)
+        }
+
+        menu.addItem(.separator())
+        addWindowActions(enabled: trusted)
+        menu.addItem(.separator())
+
+        if let frontmost = frontmostApp() {
+            let ignored = app.settings.ignoredApps.contains(frontmost.bundleID)
+            let ignore = item("Ignore \(frontmost.name)") { [weak self] in
+                self?.app.toggleIgnored(bundleID: frontmost.bundleID)
+            }
+            ignore.state = ignored ? .on : .off
+            menu.addItem(ignore)
+            menu.addItem(.separator())
+        }
+
+        let settings = item("Settings…") { [weak self] in self?.app.showSettings() }
+        settings.keyEquivalent = ","
+        settings.keyEquivalentModifierMask = .command
+        menu.addItem(settings)
+        menu.addItem(item("About ordino") { [weak self] in self?.app.showSettings(pane: .about) })
+        if app.updater.isAvailable {
+            let title = app.updater.updateAvailable ? "Update Available…" : "Check for Updates…"
+            let update = item(title) { [weak self] in self?.app.updater.checkForUpdates() }
+            update.isEnabled = app.updater.canCheck || app.updater.updateAvailable
+            if app.updater.updateAvailable {
+                update.image = NSImage(systemSymbolName: "arrow.down.circle.fill", accessibilityDescription: nil)
+            }
+            menu.addItem(update)
+        }
+        menu.addItem(.separator())
+        let quit = item("Quit ordino") { NSApp.terminate(nil) }
+        quit.keyEquivalent = "q"
+        quit.keyEquivalentModifierMask = .command
+        menu.addItem(quit)
+    }
+
+    private func cardItem() -> NSMenuItem {
+        let view = MenuCard(
+            model: card,
+            arrangeShortcut: KeyboardShortcuts.getShortcut(for: Command.arrange.shortcutName)?.description,
+            onArrange: { [weak self] layout in self?.arrange(layout) },
+            onHover: { [weak self] layout in self?.hover(layout) },
+            onPickPrimary: { [weak self] id in self?.pickPrimary(id) })
+        let host = cardHost ?? NSHostingView(rootView: view)
+        host.rootView = view
+        host.frame.size = host.fittingSize
+        cardHost = host
+        let item = NSMenuItem()
+        item.view = host
+        return item
+    }
+
+    private func addArrangeItems() {
+        let preview = card.preview
+        let arrange = commandItem(.arrange) { [weak self] in self?.arrange(preview?.plan.layout) }
+        arrange.isEnabled = preview != nil
+        menu.addItem(arrange)
+
+        if let preview {
+            // Layout submenu: every alternative for this window count.
+            let layouts = NSMenu()
+            for layout in preview.plan.candidates {
+                let entry = item(layout.description) { [weak self] in self?.arrange(layout) }
+                entry.image = ActionIcons.image(for: layout, windowCount: preview.windowIDs.count)
+                entry.state = layout == preview.plan.layout ? .on : .off
+                layouts.addItem(entry)
+            }
+            menu.addItem(submenu("Layout", layouts))
+
+            // Primary window: only meaningful for Master + Stack.
+            if preview.plan.candidates.contains(.masterStack), preview.windowIDs.count > 1 {
+                let primary = NSMenu()
+                let automatic = item("Automatic (\(autoPrimaryName(preview)))") { [weak self] in
+                    self?.primaryOverride = nil
+                    self?.arrange(.masterStack)
+                }
+                automatic.state = primaryOverride == nil ? .on : .off
+                primary.addItem(automatic)
+                primary.addItem(.separator())
+                for id in preview.windowIDs {
+                    let entry = item(windowLabel(id, preview)) { [weak self] in
+                        self?.pickPrimary(id, arrangeNow: true)
+                    }
+                    entry.state = primaryOverride == id ? .on : .off
+                    if let bundleID = preview.bundleIDs[id],
+                        let icon = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID).map({
+                            NSWorkspace.shared.icon(forFile: $0.path)
+                        })
+                    {
+                        icon.size = NSSize(width: 16, height: 16)
+                        entry.image = icon
+                    }
+                    primary.addItem(entry)
+                }
+                menu.addItem(submenu("Primary Window", primary))
+            }
+        }
+
+        menu.addItem(commandItem(.rotate) { [weak self] in self?.run(.rotate) })
+        let undo = commandItem(.undo) { [weak self] in self?.app.undo() }
+        undo.isEnabled = app.coordinator.canUndo
+        menu.addItem(undo)
+    }
+
+    private func addWindowActions(enabled: Bool) {
+        let sections: [[WindowAction]] = [
+            [.leftHalf, .rightHalf, .centerHalf, .topHalf, .bottomHalf],
+            [.topLeft, .topRight, .bottomLeft, .bottomRight],
+            [.firstThird, .centerThird, .lastThird, .firstTwoThirds, .centerTwoThirds, .lastTwoThirds],
+            [.maximize, .almostMaximize, .maximizeHeight, .larger, .smaller, .center, .restore],
+            [.nextDisplay, .previousDisplay],
+        ]
+        let multipleDisplays = Displays.all().count > 1
+        for (index, section) in sections.enumerated() {
+            if index > 0 { menu.addItem(.separator()) }
+            for action in section {
+                let entry = actionItem(action)
+                let needsDisplays = action == .nextDisplay || action == .previousDisplay
+                entry.isEnabled = enabled && (!needsDisplays || multipleDisplays)
+                menu.addItem(entry)
+            }
+        }
+        menu.addItem(.separator())
+        let groups: [(String, [WindowAction])] = [
+            ("Move to Edge", [.moveLeft, .moveRight, .moveUp, .moveDown]),
+            (
+                "Fourths",
+                [.firstFourth, .secondFourth, .thirdFourth, .lastFourth, .firstThreeFourths, .lastThreeFourths]
+            ),
+            (
+                "Sixths",
+                [
+                    .topLeftSixth, .topCenterSixth, .topRightSixth, .bottomLeftSixth, .bottomCenterSixth,
+                    .bottomRightSixth,
+                ]
+            ),
+        ]
+        for (title, actions) in groups {
+            let sub = NSMenu()
+            sub.autoenablesItems = false
+            for action in actions {
+                let entry = actionItem(action)
+                entry.isEnabled = enabled
+                sub.addItem(entry)
+            }
+            let parent = submenu(title, sub)
+            parent.isEnabled = enabled
+            menu.addItem(parent)
+        }
     }
 
     // MARK: Actions
 
+    private func run(_ action: ArrangeCoordinator.Action) {
+        app.run(action, focusedID: focusedID, primaryID: primaryOverride, display: display)
+    }
+
     private func arrange(_ layout: LayoutID?) {
-        guard let layout = layout ?? model.layoutToApply else { return }
-        let focused = focusedID
-        let target = display
-        let primary = model.primaryOverride
-        close()
-        app.run(.layout(layout), focusedID: focused, primaryID: primary, display: target)
-    }
-
-    private func select(_ layout: LayoutID?) {
-        model.selectedLayout = layout
-        model.selectedPreview = layout.flatMap {
-            app.coordinator.preview(
-                focusedID: focusedID, primaryID: model.primaryOverride, display: display, action: .layout($0))
+        menu.cancelTracking()
+        guard let layout else {
+            run(.arrange)
+            return
         }
+        run(.layout(layout))
     }
 
-    /// Picks the primary window for this arrange (`nil` = automatic). A primary
-    /// window only matters for Master + Stack, so picking one switches to it.
-    private func setPrimary(_ id: WindowID?) {
-        model.primaryOverride = id
-        if id != nil {
-            model.stickyLayout = .masterStack
-            model.selectedLayout = .masterStack
-        }
-        refresh()
-    }
-
-    /// Hover enters (`layout`) or leaves (`nil`) an alternative.
     private func hover(_ layout: LayoutID?) {
-        select(layout ?? model.stickyLayout)
+        card.hoveredLayout = layout
+        card.hoverPreview = layout.flatMap {
+            app.coordinator.preview(
+                focusedID: focusedID, primaryID: primaryOverride, display: display, action: .layout($0))
+        }
     }
 
-    private func setAlwaysPrimary(_ bundleID: String, _ on: Bool) {
-        app.setAlwaysPrimary(bundleID, on)
-        refresh()
+    private func pickPrimary(_ id: WindowID, arrangeNow: Bool = false) {
+        primaryOverride = id
+        if arrangeNow {
+            arrange(.masterStack)
+            return
+        }
+        card.preview = app.coordinator.preview(
+            focusedID: focusedID, primaryID: id, display: display, action: .layout(.masterStack))
+        card.hoverPreview = nil
+        card.hoveredLayout = nil
     }
 
-    private func moveSelection(by offset: Int) {
-        guard let candidates = model.preview?.plan.candidates, !candidates.isEmpty else { return }
-        let current = model.selectedLayout ?? model.preview?.plan.layout
-        let i = current.flatMap { candidates.firstIndex(of: $0) } ?? 0
-        let n = candidates.count
-        let next = candidates[((i + offset) % n + n) % n]
-        model.stickyLayout = next
-        select(next)
+    // MARK: Item helpers
+
+    private func commandItem(_ command: Command, perform: @escaping @MainActor () -> Void) -> NSMenuItem {
+        let entry = item(command.title, perform: perform)
+        // A static copy: the menu is rebuilt on every open, and setShortcut(for:)
+        // would register a NotificationCenter observer per item that is never removed.
+        entry.setShortcut(KeyboardShortcuts.getShortcut(for: command.shortcutName))
+        return entry
     }
 
-    // MARK: Panel
-
-    private func makePanel() -> NonActivatingPanel {
-        let panel = NonActivatingPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 340, height: 300),
-            styleMask: [.nonactivatingPanel, .borderless, .fullSizeContentView],
-            backing: .buffered, defer: true)
-        panel.isFloatingPanel = true
-        panel.level = .popUpMenu
-        panel.backgroundColor = .clear
-        panel.isOpaque = false
-        panel.hasShadow = true
-        panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .transient]
-        let view = MenuView(
-            model: model,
-            onArrange: { [weak self] in self?.arrange($0) },
-            onSelect: { [weak self] in self?.hover($0) },
-            onPrimary: { [weak self] in self?.setPrimary($0) },
-            onAlwaysPrimary: { [weak self] in self?.setAlwaysPrimary($0, $1) },
-            onUndo: { [weak self] in
-                self?.close()
-                self?.app.undo()
-            },
-            onGap: { [weak self] in
-                self?.app.setGap($0)
-                self?.refresh()
-            },
-            onLaunchAtLogin: { [weak self] in
-                self?.app.settings.launchAtLogin = $0
-                self?.refresh()
-            },
-            onGrantAccess: { [weak self] in self?.app.showOnboarding() },
-            onCheckForUpdates: { [weak self] in
-                self?.close()
-                self?.app.updater.checkForUpdates()
-            },
-            onBetaUpdates: { [weak self] in
-                self?.app.settings.betaUpdates = $0
-                self?.refresh()
-            },
-            onQuit: { NSApp.terminate(nil) })
-        panel.contentView = NSHostingView(rootView: view)
-        return panel
+    private func actionItem(_ action: WindowAction) -> NSMenuItem {
+        let entry = commandItem(.window(action)) { [weak self] in self?.app.perform(.window(action)) }
+        entry.image = ActionIcons.image(for: action)
+        return entry
     }
 
-    private func resizePanel() {
-        guard let panel, let hosting = panel.contentView else { return }
-        let size = hosting.fittingSize
-        guard size.width > 0, size.height > 0 else { return }
-        var frame = panel.frame
-        frame.origin.y += frame.height - size.height  // grow downwards from the menu bar
-        frame.size = size
-        panel.setFrame(frame, display: true)
+    private func item(_ title: String, symbol: String? = nil, perform: @escaping @MainActor () -> Void) -> NSMenuItem {
+        let entry = ClosureMenuItem(title: title, perform: perform)
+        if let symbol { entry.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) }
+        return entry
     }
 
-    private func position(_ panel: NSPanel) {
-        guard let button = statusItem.button, let window = button.window else { return }
-        if let hosting = panel.contentView { panel.setContentSize(hosting.fittingSize) }
-        let buttonFrame = window.convertToScreen(button.convert(button.bounds, to: nil))
-        let size = panel.frame.size
-        var origin = NSPoint(x: buttonFrame.midX - size.width / 2, y: buttonFrame.minY - size.height - 6)
-        if let screen = window.screen {
-            let v = screen.visibleFrame
-            origin.x = min(max(origin.x, v.minX + 8), v.maxX - size.width - 8)
-        }
-        panel.setFrameOrigin(origin)
+    private func submenu(_ title: String, _ sub: NSMenu) -> NSMenuItem {
+        let parent = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        parent.submenu = sub
+        return parent
     }
 
-    // MARK: Closing and keyboard
-
-    private func installMonitors() {
-        removeMonitors()
-        if let m = NSEvent.addGlobalMonitorForEvents(
-            matching: [.leftMouseDown, .rightMouseDown],
-            handler: {
-                [weak self] _ in
-                MainActor.assumeIsolated { self?.close() }
-            })
-        {
-            monitors.append(m)
+    private func frontmostApp() -> (name: String, bundleID: String)? {
+        let own = ProcessInfo.processInfo.processIdentifier
+        var running = NSWorkspace.shared.frontmostApplication
+        if running?.processIdentifier == own, let pid = FrontmostAppTracker.shared.lastExternalPID {
+            running = NSRunningApplication(processIdentifier: pid)
         }
-        if let m = NSEvent.addLocalMonitorForEvents(
-            matching: .keyDown,
-            handler: { [weak self] event in
-                let consumed = MainActor.assumeIsolated { self?.handleKey(event) ?? false }
-                return consumed ? nil : event
-            })
-        {
-            monitors.append(m)
-        }
-
-        // Close when focus moves elsewhere without a click: Cmd-Tab, Space switch, hotkeys.
-        let center = NotificationCenter.default
-        let workspace = NSWorkspace.shared.notificationCenter
-        let closeHandler: @Sendable (Notification) -> Void = { [weak self] _ in
-            MainActor.assumeIsolated { self?.close() }
-        }
-        if let panel {
-            observers.append(
-                (
-                    center,
-                    center.addObserver(
-                        forName: NSWindow.didResignKeyNotification, object: panel, queue: .main, using: closeHandler)
-                ))
-        }
-        observers.append(
-            (
-                workspace,
-                workspace.addObserver(
-                    forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main,
-                    using: closeHandler)
-            ))
-        observers.append(
-            (
-                workspace,
-                workspace.addObserver(
-                    forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main,
-                    using: closeHandler)
-            ))
+        guard let running, running.processIdentifier != own, let bundleID = running.bundleIdentifier else { return nil }
+        return (running.localizedName ?? bundleID, bundleID)
     }
 
-    private func removeMonitors() {
-        for m in monitors { NSEvent.removeMonitor(m) }
-        monitors.removeAll()
-        for (center, token) in observers { center.removeObserver(token) }
-        observers.removeAll()
+    private func autoPrimaryName(_ p: ArrangeCoordinator.Preview) -> String {
+        p.primaryID.flatMap { p.appNames[$0] } ?? "active window"
     }
 
-    /// Esc closes, ←/→ pick a layout, 1-9 apply one directly, Return applies the
-    /// shown layout, ⌘Z undoes.
-    /// Returns true when the key was handled.
-    private func handleKey(_ event: NSEvent) -> Bool {
-        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        switch event.keyCode {
-        case 53:  // Esc
-            close()
-            return true
-        case 36, 76:  // Return, Enter
-            arrange(nil)
-            return true
-        case 123:  // ←
-            moveSelection(by: -1)
-            return true
-        case 124:  // →
-            moveSelection(by: 1)
-            return true
-        default:
-            break
-        }
-        if mods == .command, event.charactersIgnoringModifiers == "z" {
-            close()
-            app.undo()
-            return true
-        }
-        if mods.isEmpty, let chars = event.charactersIgnoringModifiers, let digit = Int(chars), (1...9).contains(digit),
-            let candidates = model.preview?.plan.candidates, digit <= candidates.count
-        {
-            arrange(candidates[digit - 1])
-            return true
-        }
-        return false
+    private func windowLabel(_ id: WindowID, _ p: ArrangeCoordinator.Preview) -> String {
+        let app = p.appNames[id] ?? "Window"
+        let title = (p.titles[id] ?? "").trimmingCharacters(in: .whitespaces)
+        guard !title.isEmpty, title != app else { return app }
+        return "\(app) – \(title.count > 40 ? String(title.prefix(40)) + "…" : title)"
+    }
+}
+
+/// NSMenuItem that runs a closure. Menu actions arrive on the main thread.
+@MainActor
+final class ClosureMenuItem: NSMenuItem {
+    private let perform: @MainActor () -> Void
+
+    init(title: String, perform: @escaping @MainActor () -> Void) {
+        self.perform = perform
+        super.init(title: title, action: #selector(fire), keyEquivalent: "")
+        target = self
+    }
+
+    @available(*, unavailable)
+    required init(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    @objc private func fire() {
+        perform()
     }
 }

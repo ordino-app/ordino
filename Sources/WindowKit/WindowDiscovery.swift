@@ -71,6 +71,30 @@ public struct WindowDiscovery {
         return window.windowID
     }
 
+    /// The window the user is working in (frontmost app's focused window, or the
+    /// last other app's when ordino itself is frontmost), ready to be moved.
+    public static func focusedWindow(messagingTimeout: Float = 0.25) -> DiscoveredWindow? {
+        let own = ProcessInfo.processInfo.processIdentifier
+        var pid = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        if pid == nil || pid == own { pid = FrontmostAppTracker.shared.lastExternalPID }
+        guard let pid, pid != own else { return nil }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, messagingTimeout)
+        guard let window = app.element(AXAttr.focusedWindow) else { return nil }
+        AXUIElementSetMessagingTimeout(window, messagingTimeout)
+        guard let id = window.windowID,
+            let position = window.point(AXAttr.position), let size = window.size(AXAttr.size),
+            window.bool(AXAttr.fullScreen) != true
+        else { return nil }
+        let running = NSRunningApplication(processIdentifier: pid)
+        let info = WindowInfo(
+            id: id, frame: Rect(x: position.x, y: position.y, w: size.width, h: size.height),
+            isResizable: window.isSettable(AXAttr.size), isFocused: true)
+        return DiscoveredWindow(
+            info: info, pid: pid, appName: running?.localizedName ?? "App", bundleID: running?.bundleIdentifier,
+            title: window.string(AXAttr.title) ?? "", zIndex: 0, element: window, appElement: app)
+    }
+
     public func windows(on display: DisplayInfo, focusedID: UInt32? = Self.focusedWindowID()) -> Result {
         let ownPID = ProcessInfo.processInfo.processIdentifier
         let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]

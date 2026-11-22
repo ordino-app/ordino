@@ -181,6 +181,11 @@ public final class ArrangeCoordinator {
                 unplacedCount: plan.unplaced.count, mismatchedIDs: mismatched, isFeasible: plan.isFeasible))
     }
 
+    /// Forgets every remembered layout choice (Settings › Layouts).
+    public func forgetPreferredLayouts() {
+        preferredLayouts = [:]
+    }
+
     /// Puts windows back where they were before the last arrange (or run of quick presses).
     public func undo() async -> UndoResult {
         guard !isBusy else { return .busy }

@@ -22,6 +22,13 @@ final class Updater: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate
         set { controller?.updater.automaticallyChecksForUpdates = newValue }
     }
 
+    var automaticallyDownloads: Bool {
+        get { controller?.updater.automaticallyDownloadsUpdates ?? false }
+        set { controller?.updater.automaticallyDownloadsUpdates = newValue }
+    }
+
+    var lastCheck: Date? { controller?.updater.lastUpdateCheckDate }
+
     init(settings: Settings) {
         self.settings = settings
         super.init()

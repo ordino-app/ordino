@@ -43,6 +43,24 @@ public enum Displays {
         }
     }
 
+    /// The display a rect overlaps most (falls back to the nearest one).
+    public static func containing(_ rect: Rect) -> DisplayInfo? {
+        let displays = all()
+        let overlapping = displays.max {
+            ($0.frame.intersection(rect)?.area ?? 0) < ($1.frame.intersection(rect)?.area ?? 0)
+        }
+        if let overlapping, (overlapping.frame.intersection(rect)?.area ?? 0) > 0 { return overlapping }
+        return displays.min {
+            hypot($0.frame.midX - rect.midX, $0.frame.midY - rect.midY)
+                < hypot($1.frame.midX - rect.midX, $1.frame.midY - rect.midY)
+        }
+    }
+
+    /// Displays in reading order (left to right, then top to bottom), for next/previous display.
+    public static func ordered() -> [DisplayInfo] {
+        all().sorted { ($0.frame.minX, $0.frame.minY) < ($1.frame.minX, $1.frame.minY) }
+    }
+
     /// The display under the mouse pointer (the default arrange target).
     public static func underMouse() -> DisplayInfo? {
         let ph = primaryHeight
