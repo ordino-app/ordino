@@ -1,0 +1,47 @@
+name: Website
+
+# Deploys web/ to GitHub Pages (https://xsugra.github.io/ordino/). The repo is
+# private; the site is public. Runs on a small GitHub-hosted Linux runner: the
+# official Pages artifact action needs GNU tar, which the Mac runner doesn't
+# have, and a deploy takes well under a minute of the plan's included minutes.
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy website
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect the site (no build artefacts or review files)
+        run: |
+          mkdir -p _site
+          rsync -a \
+            --exclude '.taste-skill' --exclude 'shots' --exclude '*.md' --exclude 'names.json' \
+            --exclude '.DS_Store' --exclude 'media/*.png' \
+            web/ _site/
+          touch _site/.nojekyll
+          du -sh _site
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

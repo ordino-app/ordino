@@ -1,0 +1,35 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "web/index.html"
+        ],
+        "createdAt": "2026-11-22T13:15:37.664Z",
+        "reason": "Remaining hits are drawn macOS window/menubar mocks, full-bleed section wrappers and the kit's 32px pill; real text is inset"
+      },
+      {
+        "rule": "pulsing-dot",
+        "value": "*",
+        "files": [
+          "web/index.html"
+        ],
+        "createdAt": "2026-11-22T13:15:38.180Z",
+        "reason": "Kit hero layout's badge from web/assets, which the page never edits"
+      },
+      {
+        "rule": "radial-halo",
+        "value": "*",
+        "files": [
+          "web/index.html"
+        ],
+        "createdAt": "2026-11-22T13:15:38.706Z",
+        "reason": "Kit hero ground on a light page, not a dark-page glow"
+      }
+    ]
+  }
+}

@@ -655,7 +655,26 @@ struct AboutPane: View {
             }
             .listRowBackground(Color.clear)
 
-            Section("Support") {
+            Section {
+                SettingRow(
+                    symbol: "chevron.left.forwardslash.chevron.right", title: "GitHub",
+                    help: "Made by xsugra. Follow along or say hello on GitHub."
+                ) {
+                    Link("github.com/xsugra", destination: AuthorLinks.github)
+                }
+                if let coffee = AuthorLinks.buyMeACoffee {
+                    SettingRow(
+                        symbol: "cup.and.saucer", title: "Buy me a coffee",
+                        help: "ordino is free. If it saves you time, a coffee keeps it going."
+                    ) {
+                        Link("buymeacoffee.com/xsugra", destination: coffee)
+                    }
+                }
+            } header: {
+                SectionTitle("Author", symbol: "person")
+            }
+
+            Section {
                 LabeledContent("Diagnostics") {
                     Button(copied ? "Copied" : "Copy Diagnostics") {
                         NSPasteboard.general.clearContents()
@@ -663,12 +682,16 @@ struct AboutPane: View {
                         copied = true
                     }
                 }
+            } header: {
+                SectionTitle("Support", symbol: "lifepreserver")
             }
 
-            Section("Acknowledgements") {
+            Section {
                 LabeledContent("Sparkle", value: "MIT License")
                 LabeledContent("KeyboardShortcuts", value: "MIT License")
                 LabeledContent("ordino", value: "MIT License · free")
+            } header: {
+                SectionTitle("Acknowledgements", symbol: "heart")
             }
         }
         .formStyle(.grouped)
@@ -712,4 +735,10 @@ struct Footnote: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
     }
+}
+
+/// Where people can find the author. Set `buyMeACoffee` once the profile exists.
+enum AuthorLinks {
+    static let github = URL(string: "https://github.com/xsugra")!
+    static let buyMeACoffee: URL? = URL(string: "https://buymeacoffee.com/xsugra")
 }

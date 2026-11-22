@@ -13,3 +13,6 @@ web/shots/
 web/.taste-skill/
 web/media/*.png
 .claude/
+.idea/
+.impeccable/hook.cache.json
+.impeccable/config.local.json
