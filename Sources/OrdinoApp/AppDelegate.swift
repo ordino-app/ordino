@@ -391,6 +391,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         backend.excludedBundleIDs = Set(settings.ignoredApps).union(settings.appRules.keys)
         coordinator.preferredPrimaryApps = settings.primaryApps
         menu?.setVisible(settings.showMenuBarIcon)
+        menu?.refresh()
         syncDragSnap()
     }
 
@@ -402,6 +403,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             _ = settings.snapOnDrag
             _ = settings.primaryApps
             _ = settings.showMenuBarIcon
+            _ = settings.menuBarIconStyle
         } onChange: { [weak self] in
             Task { @MainActor in
                 self?.syncSettings()

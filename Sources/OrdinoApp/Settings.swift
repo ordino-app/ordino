@@ -4,6 +4,28 @@ import Observation
 import ServiceManagement
 
 /// Which display "Arrange" works on.
+/// How the menu bar icon looks.
+enum MenuBarIconStyle: String, CaseIterable, Identifiable, Sendable {
+    /// One colour, drawn by macOS like other menu bar icons.
+    case monochrome
+    /// The brand colours; the two small tiles follow the menu bar (light or dark).
+    case colorAutomatic
+    /// The brand colours with dark small tiles, for a light menu bar.
+    case colorLight
+    /// The brand colours with light small tiles, for a dark menu bar.
+    case colorDark
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .monochrome: "Monochrome"
+        case .colorAutomatic: "Colour, follows light or dark"
+        case .colorLight: "Colour, light menu bar"
+        case .colorDark: "Colour, dark menu bar"
+        }
+    }
+}
+
 enum ArrangeTarget: String, CaseIterable, Identifiable, Sendable {
     case displayUnderMouse
     case displayWithFocusedWindow
@@ -60,6 +82,7 @@ final class Settings {
         }
     }
     var arrangeTarget: ArrangeTarget { didSet { save(arrangeTarget.rawValue, "arrangeTarget") } }
+    var menuBarIconStyle: MenuBarIconStyle { didSet { save(menuBarIconStyle.rawValue, "menuBarIconStyle") } }
 
     // MARK: Feedback and appearance
 
@@ -109,6 +132,8 @@ final class Settings {
         cycleOnRepeat = defaults.object(forKey: "cycleOnRepeat") as? Bool ?? true
         arrangeTarget =
             defaults.string(forKey: "arrangeTarget").flatMap(ArrangeTarget.init(rawValue:)) ?? .displayUnderMouse
+        menuBarIconStyle =
+            defaults.string(forKey: "menuBarIconStyle").flatMap(MenuBarIconStyle.init(rawValue:)) ?? .monochrome
         showArrangeHUD = defaults.object(forKey: "showArrangeHUD") as? Bool ?? true
         showActionHUD = defaults.object(forKey: "showActionHUD") as? Bool ?? false
         rearrangeOnDisplayChange = defaults.object(forKey: "rearrangeOnDisplayChange") as? Bool ?? true

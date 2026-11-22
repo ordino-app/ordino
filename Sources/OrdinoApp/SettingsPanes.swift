@@ -36,6 +36,24 @@ struct GeneralPane: View {
                     symbol: "menubar.rectangle", title: "Show in the menu bar",
                     help: "When hidden, open ordino again from Applications or Spotlight to get back to Settings.",
                     isOn: $settings.showMenuBarIcon)
+                if settings.showMenuBarIcon {
+                    SettingRow(symbol: "paintpalette", title: "Menu bar icon") {
+                        Picker("Menu bar icon", selection: $settings.menuBarIconStyle) {
+                            ForEach(MenuBarIconStyle.allCases) { style in
+                                Label {
+                                    Text(style.title)
+                                } icon: {
+                                    if let icon = MenuController.icon(style: style, updateWaiting: false) {
+                                        Image(nsImage: icon)
+                                    }
+                                }
+                                .tag(style)
+                            }
+                        }
+                        .labelsHidden()
+                        .fixedSize()
+                    }
+                }
             } header: {
                 SectionTitle("Startup", symbol: "sunrise")
             } footer: {
@@ -137,6 +155,20 @@ struct LayoutsPane: View {
     @Bindable var settings: Settings
     @State private var confirmForget = false
 
+    private func layoutGrid(_ layout: Binding<CustomLayout>) -> some View {
+        Group {
+            Stepper("\(layout.wrappedValue.columns) columns", value: layout.columns, in: 1...6).fixedSize()
+            Stepper("\(layout.wrappedValue.rows) rows", value: layout.rows, in: 1...4).fixedSize()
+        }
+    }
+
+    private func layoutActions(_ layout: CustomLayout) -> some View {
+        Group {
+            KeyboardShortcuts.Recorder(for: layout.shortcutName)
+            Button("Apply") { app.applyCustomLayout(layout.id) }
+        }
+    }
+
     var body: some View {
         Form {
             Section {
@@ -203,23 +235,27 @@ struct LayoutsPane: View {
                     Text("No custom layouts yet.").foregroundStyle(.secondary)
                 }
                 ForEach($settings.customLayouts) { $layout in
-                    HStack(spacing: 12) {
-                        TextField("Name", text: $layout.name)
-                            .textFieldStyle(.plain)
-                            .font(.body.weight(.medium))
-                        Spacer()
-                        Stepper("\(layout.columns) col", value: $layout.columns, in: 1...6).fixedSize()
-                        Stepper("\(layout.rows) row", value: $layout.rows, in: 1...4).fixedSize()
-                        KeyboardShortcuts.Recorder(for: layout.shortcutName)
-                        Button("Apply") { app.applyCustomLayout(layout.id) }
-                        Button {
-                            app.customLayouts.delete(layout.id)
-                        } label: {
-                            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            TextField("Name", text: $layout.name)
+                                .textFieldStyle(.plain)
+                                .font(.body.weight(.medium))
+                            DeleteButton(label: "Delete \(layout.name)") { app.customLayouts.delete(layout.id) }
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Delete \(layout.name)")
+                        // Wraps onto two lines in a narrow window, so every control stays visible.
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 12) {
+                                layoutGrid($layout)
+                                Spacer()
+                                layoutActions(layout)
+                            }
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(spacing: 12) { layoutGrid($layout) }
+                                HStack(spacing: 12) { layoutActions(layout) }
+                            }
+                        }
                     }
+                    .padding(.vertical, 2)
                 }
                 Button("Add Custom Layout") {
                     app.customLayouts.add()
@@ -243,19 +279,15 @@ struct LayoutsPane: View {
                             TextField("Name", text: $ws.name)
                                 .textFieldStyle(.plain)
                                 .font(.body.weight(.medium))
-                            Spacer()
+                            DeleteButton(label: "Delete \(ws.name)") { app.workspaces.delete(ws.id) }
+                        }
+                        Text(ws.summary).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                        HStack(spacing: 12) {
                             KeyboardShortcuts.Recorder(for: ws.shortcutName)
                             Button("Apply") { app.applyWorkspace(ws.id) }
-                            Button {
-                                app.workspaces.delete(ws.id)
-                            } label: {
-                                Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Delete \(ws.name)")
                         }
-                        Text(ws.summary).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
+                    .padding(.vertical, 2)
                 }
                 Button("Save Current Layout as Workspace…") { app.saveWorkspace() }
             } header: {
@@ -883,4 +915,19 @@ struct Footnote: View {
 enum AuthorLinks {
     static let github = URL(string: "https://github.com/xsugra")!
     static let buyMeACoffee: URL? = URL(string: "https://buymeacoffee.com/xsugra")
+}
+
+/// The minus button that removes a row (workspaces, custom layouts).
+struct DeleteButton: View {
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help(label)
+        .accessibilityLabel(label)
+    }
 }

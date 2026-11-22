@@ -53,15 +53,58 @@ final class MenuController: NSObject, NSMenuDelegate {
     private func refreshIcon() {
         guard let button = statusItem?.button else { return }
         let updateWaiting = app.updater.updateAvailable
-        var image = Bundle.main.image(forResource: "MenuBarIcon")
-        if image == nil || updateWaiting {
-            image = NSImage(
-                systemSymbolName: updateWaiting ? "rectangle.split.2x2.fill" : "rectangle.split.2x2",
-                accessibilityDescription: "ordino")
-        }
-        image?.isTemplate = true
-        button.image = image
+        button.image = Self.icon(style: app.settings.menuBarIconStyle, updateWaiting: updateWaiting)
         button.setAccessibilityLabel(updateWaiting ? "ordino, update available" : "ordino")
+    }
+
+    /// The menu bar icon. Monochrome is a template image macOS tints; the colour styles draw the brand mark
+    /// (terracotta primary tile, graphite or off-white stack). The automatic one is drawn on demand, so it
+    /// follows the menu bar's appearance whenever it changes (light/dark mode, wallpaper tinting).
+    static func icon(style: MenuBarIconStyle, updateWaiting: Bool) -> NSImage? {
+        if style == .monochrome {
+            var image = Bundle.main.image(forResource: "MenuBarIcon")
+            if image == nil || updateWaiting {
+                image = NSImage(
+                    systemSymbolName: updateWaiting ? "rectangle.split.2x2.fill" : "rectangle.split.2x2",
+                    accessibilityDescription: "ordino")
+            }
+            image?.isTemplate = true
+            return image
+        }
+        let terracotta = NSColor(srgbRed: 0.851, green: 0.396, blue: 0.231, alpha: 1)
+        let graphite = NSColor(srgbRed: 0.169, green: 0.176, blue: 0.192, alpha: 1)
+        let offWhite = NSColor(srgbRed: 0.929, green: 0.918, blue: 0.894, alpha: 1)
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { rect in
+            let dark: Bool =
+                switch style {
+                case .colorDark: true
+                case .colorLight: false
+                default: NSAppearance.currentDrawing().bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                }
+            let s = 15.0 / 48
+            let x0 = (rect.width - 48 * s) / 2
+            let y0 = (rect.height - 48 * s) / 2
+            func tile(_ x: Double, _ y: Double, _ w: Double, _ h: Double, _ color: NSColor) {
+                color.setFill()
+                NSBezierPath(
+                    roundedRect: NSRect(x: x0 + x * s, y: y0 + y * s, width: w * s, height: h * s),
+                    xRadius: 4.3 * s, yRadius: 4.3 * s
+                ).fill()
+            }
+            let stack = dark ? offWhite : graphite
+            tile(0, 0, 24.6, 48, terracotta)
+            tile(30, 0, 18, 24.6, stack)
+            tile(30, 30, 18, 18, stack)
+            if updateWaiting {
+                // A small dot on the top tile: an update is ready.
+                NSColor.systemBlue.setFill()
+                NSBezierPath(ovalIn: NSRect(x: rect.width - 6, y: 0, width: 6, height: 6)).fill()
+            }
+            return true
+        }
+        image.isTemplate = false
+        image.accessibilityDescription = "ordino"
+        return image
     }
 
     // MARK: NSMenuDelegate
