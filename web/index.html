@@ -332,6 +332,14 @@
   .brew:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   @media (max-width: 639px) { .brew { display: none; } }   /* Homebrew is a Mac tool; the phone hero stays as it was */
 
+  /* features: six cards, each with a tiny drawn screen of what it does */
+  .feat-grid { row-gap: var(--s-6); }
+  .feat { display: flex; flex-direction: column; gap: var(--s-3); }
+  .feat h3 { font-size: 18px; } .feat p { color: var(--ink); }
+  .fv { display: block; width: 100%; max-width: 220px; height: auto; }
+  @media (max-width: 1023px) { #features .feat { grid-column: auto / span 6; } }
+  @media (max-width: 639px) { #features .feat { grid-column: 1 / -1; } #features .fv { max-width: 150px; } #features .feat { gap: var(--s-2); } }
+
   /* a tall window (960 and up, e.g. a portrait or half-width window on a big display): the close and the
      statement are as tall as what they hold, not a whole screen, which left hundreds of empty pixels
      between the heading and the name and under the keys. Laptop and phone screens keep one screen each. */
@@ -398,6 +406,7 @@
       </div>
       <div class="nav__item"><a class="nav__link" href="#layouts">Layouts</a></div>
       <div class="nav__item"><a class="nav__link" href="#shortcuts">Shortcuts</a></div>
+      <div class="nav__item"><a class="nav__link" href="#features">Features</a></div>
       <div class="nav__item"><a class="nav__link" href="#install">Install</a></div>
       <div class="nav__item"><a class="nav__link" href="#faq">Questions</a></div>
     </nav>
@@ -586,6 +595,44 @@
             <div class="at-corner" id="screen-4" hidden><div class="shot"><img src="media/settings-updates.webp" alt="" width="1520" height="1240" loading="lazy" decoding="async"></div></div>
           </div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="features" style="--hm: 2" aria-labelledby="features-h">
+    <div class="wrap">
+      <div class="section-head"><h2 id="features-h">More ordino features for real desks. <span class="muted">More monitors, more ways to work.</span></h2></div>
+      <div class="grid feat-grid">
+        <article class="card card--open span-4 m-nolift feat">
+          <svg class="fv" viewBox="0 0 160 96" role="img" aria-label="A window snapped to the left half"><rect width="160" height="96" rx="10" fill="#2b2d31"/><rect x="6" y="6" width="72" height="84" rx="4" fill="#d9653b"/><rect x="82" y="6" width="72" height="40" rx="4" fill="#edeae4"/><rect x="82" y="50" width="72" height="40" rx="4" fill="#edeae4"/></svg>
+          <h3>Drag-to-snap windows</h3>
+          <p>Pull a window to a screen edge for a half, into a corner for a quarter, or up to the top for a bar of layouts: thirds, two thirds, quarters.</p>
+        </article>
+        <article class="card card--open span-4 m-nolift feat">
+          <svg class="fv" viewBox="0 0 160 96" role="img" aria-label="A saved workspace with three apps in place"><rect width="160" height="96" rx="10" fill="#2b2d31"/><rect x="6" y="6" width="94" height="84" rx="4" fill="#d9653b"/><rect x="104" y="6" width="50" height="40" rx="4" fill="#edeae4"/><rect x="104" y="50" width="50" height="40" rx="4" fill="#edeae4"/></svg>
+          <h3>Workspaces that reopen your apps</h3>
+          <p>Save how your apps sit on a display as Coding or Writing. One shortcut opens what's missing and puts every window back.</p>
+        </article>
+        <article class="card card--open span-4 m-nolift feat">
+          <svg class="fv" viewBox="0 0 160 96" role="img" aria-label="Slack pinned to the bottom right corner"><rect width="160" height="96" rx="10" fill="#2b2d31"/><rect x="6" y="6" width="100" height="84" rx="4" fill="#edeae4"/><rect x="110" y="50" width="44" height="40" rx="4" fill="#d9653b"/></svg>
+          <h3>App placement rules</h3>
+          <p>Slack always bottom right, Terminal never moved. The layout fills the rest of the screen around them.</p>
+        </article>
+        <article class="card card--open span-4 m-nolift feat">
+          <svg class="fv" viewBox="0 0 160 96" role="img" aria-label="A three-column grid"><rect width="160" height="96" rx="10" fill="#2b2d31"/><rect x="6" y="6" width="46" height="84" rx="4" fill="#d9653b"/><rect x="57" y="6" width="46" height="84" rx="4" fill="#edeae4"/><rect x="108" y="6" width="46" height="84" rx="4" fill="#edeae4"/></svg>
+          <h3>Custom grids in the ordino menu</h3>
+          <p>Three columns for an ultrawide, a 2 × 2 grid for a big monitor. Pick a shape, give it a shortcut.</p>
+        </article>
+        <article class="card card--open span-4 m-nolift feat">
+          <svg class="fv" viewBox="0 0 160 96" role="img" aria-label="A landscape and a portrait display, each split in halves"><rect x="0" y="14" width="100" height="68" rx="9" fill="#2b2d31"/><rect x="6" y="20" width="42" height="56" rx="4" fill="#d9653b"/><rect x="52" y="20" width="42" height="56" rx="4" fill="#edeae4"/><rect x="110" y="0" width="50" height="96" rx="9" fill="#2b2d31"/><rect x="115" y="5" width="40" height="41" rx="4" fill="#d9653b"/><rect x="115" y="50" width="40" height="41" rx="4" fill="#edeae4"/></svg>
+          <h3>Window halves on portrait monitors</h3>
+          <p>Portrait displays get top and bottom halves. Plug a monitor in or out and each one gets its last layout back.</p>
+        </article>
+        <article class="card card--open span-4 m-nolift feat">
+          <svg class="fv" viewBox="0 0 160 96" role="img" aria-label="An ordino link"><rect width="160" height="96" rx="10" fill="#2b2d31"/><text x="80" y="55" text-anchor="middle" font-family="DM Mono, ui-monospace, monospace" font-size="16" fill="#edeae4">ordino://arrange</text></svg>
+          <h3>ordino links for Shortcuts and Raycast</h3>
+          <p>ordino:// links for Shortcuts, Raycast and scripts: arrange, switch layout or open a workspace.</p>
+        </article>
       </div>
     </div>
   </section>
