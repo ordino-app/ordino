@@ -314,6 +314,7 @@ final class MenuController: NSObject, NSMenuDelegate {
         sub.addItem(.separator())
         for action in WindowAction.ruleChoices {
             let i = item(action.title) { [weak self] in self?.app.setRule(action, bundleID: bundleID) }
+            i.image = ActionIcons.image(for: action)
             i.state = current == action ? .on : .off
             sub.addItem(i)
         }

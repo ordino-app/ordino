@@ -465,7 +465,14 @@ struct AppsPane: View {
                         AppLabel(bundleID: bundleID)
                         Spacer()
                         Picker("Place", selection: ruleBinding(bundleID)) {
-                            ForEach(WindowAction.ruleChoices) { Text($0.title).tag($0.rawValue) }
+                            ForEach(WindowAction.ruleChoices) { action in
+                                Label {
+                                    Text(action.title)
+                                } icon: {
+                                    Image(nsImage: ActionIcons.image(for: action))
+                                }
+                                .tag(action.rawValue)
+                            }
                         }
                         .labelsHidden()
                         .fixedSize()
