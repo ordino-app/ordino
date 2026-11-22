@@ -23,7 +23,7 @@ if (desk) {
   frame?.addEventListener('pointerenter', () => { if (performance.now() - last > 2600) { last = performance.now(); play(250); } });
 }
 
-const FEED = 'https://xsugra.github.io/ordino-updates/appcast.xml';
+const FEED = 'https://ordino-app.github.io/ordino-updates/appcast.xml';
 const SPARKLE = 'http://www.andymatuschak.org/xml-namespaces/sparkle';
 (async () => {
   try {

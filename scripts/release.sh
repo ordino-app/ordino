@@ -7,7 +7,7 @@
 #
 # Environment:
 #   UPDATES_REPO      public repo that hosts the appcast (GitHub Pages) and the
-#                     update archives, e.g. xsugra/ordino-updates. Unset = no feed.
+#                     update archives, e.g. ordino-app/ordino-updates. Unset = no feed.
 #   DEPLOY_KEY        SSH deploy key with write access to UPDATES_REPO
 #                     (default ~/.config/ordino/updates_deploy_key)
 #   SPARKLE_KEY_FILE  EdDSA private key (default ~/.config/ordino/sparkle_ed25519.key)
@@ -45,7 +45,7 @@ log() { printf '\033[1m==> %s\033[0m\n' "$*"; }
 if [ -n "$UPDATES_REPO" ]; then
   FEED_URL="https://${UPDATES_REPO%%/*}.github.io/${UPDATES_REPO#*/}/appcast.xml"
 else
-  FEED_URL="${FEED_URL:-https://xsugra.github.io/ordino-updates/appcast.xml}"
+  FEED_URL="${FEED_URL:-https://ordino-app.github.io/ordino-updates/appcast.xml}"
 fi
 
 log "Building ordino $VERSION (universal, release) -> feed $FEED_URL"

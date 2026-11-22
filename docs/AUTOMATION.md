@@ -127,11 +127,11 @@ make test-update
 
 ## Website
 
-The promo site lives in `web/` and is served at **https://xsugra.github.io/ordino/**. The repo is private, the site is public (GitHub Pages on the Pro plan included in the GitHub Student Developer Pack).
+The promo site lives in `web/` and is served at **https://ordino-app.github.io/ordino/**. The repo is public (GitHub Pages on the Pro plan included in the GitHub Student Developer Pack).
 
 - `.github/workflows/pages.yml` deploys `web/` on every push to `main` that touches it, or by hand from the Actions tab. It runs on a GitHub-hosted Linux runner (the official Pages action needs GNU tar); a deploy takes under a minute of the included minutes.
 - The download button reads the newest version from the Sparkle appcast, so releases don't need a site change.
-- The old address https://xsugra.github.io/ordino-web/ redirects here.
+- The old addresses https://xsugra.github.io/ordino/ and https://xsugra.github.io/ordino-web/ redirect here.
 - Design checks: the site was built with the design-taste-frontend kit; re-run its gate from `web/` after bigger changes.
 
 ## Daily commands

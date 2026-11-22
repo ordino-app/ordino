@@ -9,4 +9,4 @@ official app from this repository, its update feed and its website.
 - You may say your project is "based on ordino" or "a fork of ordino".
 - Writing about ordino, linking to it and showing its unmodified logo next to it is fine.
 
-Questions: see the contact on https://xsugra.github.io/ordino/privacy.html
+Questions: see the contact on https://ordino-app.github.io/ordino/privacy.html

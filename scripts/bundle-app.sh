@@ -42,7 +42,7 @@ build_number() {
 }
 BUILD_NUMBER="${BUILD_NUMBER:-$(build_number "$VERSION")}"
 # Where the app looks for updates. Must be a public HTTPS URL (see docs/AUTOMATION.md).
-FEED_URL="${FEED_URL:-https://xsugra.github.io/ordino-updates/appcast.xml}"
+FEED_URL="${FEED_URL:-https://ordino-app.github.io/ordino-updates/appcast.xml}"
 PUBLIC_ED_KEY="${PUBLIC_ED_KEY:-$(cat "$ROOT/Config/SparklePublicKey.txt")}"
 APP="${APP:-$ROOT/build/ordino.app}"
 
