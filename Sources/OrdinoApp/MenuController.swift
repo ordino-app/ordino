@@ -104,6 +104,7 @@ final class MenuController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         addWindowActions(enabled: trusted)
         menu.addItem(workspacesMenu(enabled: trusted))
+        if !app.settings.customLayouts.isEmpty { menu.addItem(customLayoutsMenu(enabled: trusted)) }
         menu.addItem(.separator())
 
         if let frontmost = frontmostApp() {
@@ -302,6 +303,25 @@ final class MenuController: NSObject, NSMenuDelegate {
         let entry = commandItem(.window(action)) { [weak self] in self?.app.perform(.window(action)) }
         entry.image = ActionIcons.image(for: action)
         return entry
+    }
+
+    /// "Custom Layouts" submenu: the user's grids (Settings › Layouts).
+    private func customLayoutsMenu(enabled: Bool) -> NSMenuItem {
+        let parent = NSMenuItem(title: "Custom Layouts", action: nil, keyEquivalent: "")
+        parent.image = NSImage(systemSymbolName: "rectangle.split.3x1", accessibilityDescription: nil)
+        let sub = NSMenu()
+        for layout in app.settings.customLayouts {
+            let i = item("\(layout.name)  (\(layout.columns)×\(layout.rows))") { [weak self] in
+                self?.app.applyCustomLayout(layout.id)
+            }
+            i.isEnabled = enabled
+            if let shortcut = KeyboardShortcuts.getShortcut(for: layout.shortcutName) { i.setShortcut(shortcut) }
+            sub.addItem(i)
+        }
+        sub.addItem(.separator())
+        sub.addItem(item("Manage Custom Layouts…") { [weak self] in self?.app.showSettings(pane: .layouts) })
+        parent.submenu = sub
+        return parent
     }
 
     /// "Workspaces" submenu: apply a saved workspace, or save the current display as one.

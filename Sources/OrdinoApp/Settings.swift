@@ -80,6 +80,10 @@ final class Settings {
     /// Per-app placement rules: bundle ID -> WindowAction raw value. Ruled apps are left out of
     /// layouts and put in their place after each arrange.
     var appRules: [String: String] { didSet { save(appRules, "appRules") } }
+    /// User-defined grid layouts (Settings › Layouts › Custom layouts), stored as JSON.
+    var customLayouts: [CustomLayout] {
+        didSet { if let data = try? JSONEncoder().encode(customLayouts) { save(data, "customLayouts") } }
+    }
     /// Saved workspaces (Settings › Layouts › Workspaces), stored as JSON.
     var workspaces: [Workspace] {
         didSet { if let data = try? JSONEncoder().encode(workspaces) { save(data, "workspaces") } }
@@ -110,6 +114,11 @@ final class Settings {
         rearrangeOnDisplayChange = defaults.object(forKey: "rearrangeOnDisplayChange") as? Bool ?? true
         snapOnDrag = defaults.object(forKey: "snapOnDrag") as? Bool ?? true
         appRules = defaults.dictionary(forKey: "appRules") as? [String: String] ?? [:]
+        customLayouts =
+            (defaults.data(forKey: "customLayouts")).flatMap {
+                try? JSONDecoder().decode([CustomLayout].self, from: $0)
+            }
+            ?? []
         workspaces =
             (defaults.data(forKey: "workspaces")).flatMap { try? JSONDecoder().decode([Workspace].self, from: $0) }
             ?? []

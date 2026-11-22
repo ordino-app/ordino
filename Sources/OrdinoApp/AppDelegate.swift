@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         backend: backend, preferences: settings.preferences, preferredLayouts: settings.preferredLayouts)
     private(set) lazy var windowActions = WindowActionController(settings: settings)
     private(set) lazy var workspaces = WorkspaceController(settings: settings)
+    private(set) lazy var customLayouts = CustomLayoutController(settings: settings)
     private(set) lazy var updater = Updater(settings: settings)
     private var menu: MenuController?
     private let hud = HUD()
@@ -37,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         observeDisplayChanges()
         observeRuledApps()
         workspaces.registerShortcuts { [weak self] in self?.applyWorkspace($0) }
+        registerCustomLayoutShortcuts()
         dragSnap = DragSnapController(settings: settings, windowActions: windowActions) { [weak self] outcome in
             if case .done(let action, let appName) = outcome, self?.settings.showActionHUD == true {
                 self?.hud.show("\(action.title) · \(appName)")
@@ -48,6 +50,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if UserDefaults.standard.string(forKey: "ordinoSnapshotDir") != nil { return }
         #endif
         if !AccessibilityPermission.isTrusted { showOnboarding() }
+    }
+
+    /// `ordino://` links from Shortcuts.app, Raycast or scripts (see `AutomationURL`).
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            guard let request = AutomationURL(url) else {
+                hud.show("Unknown ordino link: \(url.absoluteString)")
+                continue
+            }
+            handle(request)
+        }
+    }
+
+    private func handle(_ request: AutomationURL) {
+        let focused = WindowDiscovery.focusedWindowID()
+        switch request {
+        case .arrange(let recent): run(.arrange, focusedID: focused, limit: recent)
+        case .layout(let layout): run(.layout(layout), focusedID: focused)
+        case .nextLayout: run(.nextLayout, focusedID: focused)
+        case .previousLayout: run(.previousLayout, focusedID: focused)
+        case .rotate: run(.rotate, focusedID: focused)
+        case .undo: undo()
+        case .window(let action): performWindowAction(action)
+        case .workspace(let name):
+            if let ws = settings.workspaces.first(where: { $0.name.lowercased() == name.lowercased() }) {
+                applyWorkspace(ws.id)
+            } else {
+                hud.show("No workspace named \(name)")
+            }
+        case .custom(let name):
+            if let l = settings.customLayouts.first(where: { $0.name.lowercased() == name.lowercased() }) {
+                applyCustomLayout(l.id)
+            } else {
+                hud.show("No custom layout named \(name)")
+            }
+        }
     }
 
     /// Launching ordino again (Finder, Spotlight) opens Settings, so it stays
@@ -66,6 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .previousLayout: run(.previousLayout, focusedID: WindowDiscovery.focusedWindowID())
         case .rotate: run(.rotate, focusedID: WindowDiscovery.focusedWindowID())
         case .undo: undo()
+        case .arrangeRecent(let n): run(.arrange, focusedID: WindowDiscovery.focusedWindowID(), limit: n)
         case .window(let action): performWindowAction(action)
         }
     }
@@ -76,7 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ///   - display: the display to arrange; `nil` = per the "Arrange" setting.
     func run(
         _ action: ArrangeCoordinator.Action, focusedID: WindowID?, primaryID: WindowID? = nil,
-        display: DisplaySnapshot? = nil
+        display: DisplaySnapshot? = nil, limit: Int? = nil
     ) {
         guard AccessibilityPermission.isTrusted else {
             showOnboarding()
@@ -85,7 +124,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let target = display ?? arrangeDisplay()
         Task {
             let area = target.map(layoutArea(for:))
+            backend.windowLimit = limit
+            coordinator.spaceID = Spaces.activeSpaceID()
             let outcome = await coordinator.perform(action, focusedID: focusedID, primaryID: primaryID, display: area)
+            backend.windowLimit = nil
             if case .arranged(let r) = outcome, let id = target?.id { lastLayouts[id] = r.layout }
             if let target { await applyAppRules(on: target) }
             settings.preferredLayouts = coordinator.preferredLayouts
@@ -186,6 +228,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 hud.show("\(ws.name) · no windows to place")
             }
         }
+    }
+
+    func applyCustomLayout(_ id: UUID) {
+        guard let layout = settings.customLayouts.first(where: { $0.id == id }) else { return }
+        guard AccessibilityPermission.isTrusted else { return showOnboarding() }
+        guard let target = arrangeDisplay(), let info = Displays.all().first(where: { $0.uuid == target.id }) else {
+            return
+        }
+        Task {
+            let n = await customLayouts.apply(layout, on: info)
+            hud.show(n == 0 ? "No windows to arrange" : "\(layout.name) · \(n) window\(n == 1 ? "" : "s")")
+        }
+    }
+
+    func registerCustomLayoutShortcuts() {
+        customLayouts.registerShortcuts { [weak self] in self?.applyCustomLayout($0) }
     }
 
     func saveWorkspace() {

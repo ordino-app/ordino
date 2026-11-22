@@ -1,4 +1,5 @@
 import AppKit
+import KeyboardShortcuts
 import SwiftUI
 import WindowKit
 
@@ -36,7 +37,7 @@ final class OnboardingController: NSObject, NSWindowDelegate {
 
     private func makeWindow() -> NSWindow {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 420),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 480),
             styleMask: [.titled, .closable, .fullSizeContentView], backing: .buffered, defer: false)
         window.titlebarAppearsTransparent = true
         window.title = "Welcome to ordino"
@@ -96,7 +97,16 @@ private struct OnboardingView: View {
             if model.trusted {
                 Label("Accessibility access granted", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green).font(.headline)
-                Text("Open the ordino menu in the menu bar, or press ⌃⌥⌘A.").foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Try these").font(.headline)
+                    TipRow(keys: Self.keys(.arrange, fallback: "⌃⌥⌘A"), text: "Arrange every window on the display")
+                    TipRow(keys: Self.keys(.arrange, fallback: "⌃⌥⌘A") + " again", text: "Cycle to the next layout")
+                    TipRow(keys: Self.keys(.undo, fallback: "⌃⌥⌘Z"), text: "Put the windows back")
+                    TipRow(keys: "Drag", text: "Pull a window to a screen edge or up to the top for more layouts")
+                }
+                Text("Everything else is in the ordino menu in the menu bar: workspaces, custom layouts, app rules.")
+                    .foregroundStyle(.secondary).font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
                 Button("Start using ordino", action: done).keyboardShortcut(.defaultAction).controlSize(.large)
             } else {
                 VStack(alignment: .leading, spacing: 6) {
@@ -125,5 +135,27 @@ private struct OnboardingView: View {
         .padding(28)
         .frame(width: 520, height: 420, alignment: .topLeading)
         .animation(reduceMotion ? nil : .default, value: model.trusted)
+    }
+}
+
+extension OnboardingView {
+    /// The shortcut the user has for a command, as shown in menus (e.g. "⌃⌥⌘A").
+    fileprivate static func keys(_ command: Command, fallback: String) -> String {
+        KeyboardShortcuts.getShortcut(for: command.shortcutName).map { "\($0)" } ?? fallback
+    }
+}
+
+private struct TipRow: View {
+    let keys: String
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(keys)
+                .font(.system(.callout, design: .rounded).weight(.semibold))
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+            Text(text).font(.callout)
+        }
     }
 }

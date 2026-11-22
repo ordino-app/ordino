@@ -35,14 +35,22 @@ Status: `[x]` done · `[~]` in progress · `[ ]` not started. Keep this file cur
     Only outer screen edges snap (edges shared between displays don't), unsnap restores size, defers to macOS tiling.
     Tested by hand by the owner on 3 monitors incl. portrait.
 
-## Later
+## Later (done 2026-11-23 unless noted)
 
-- [ ] 6. Gaps and margins: already in Settings › Layouts; add a live preview.
-- [ ] 7. Custom layouts: user-drawn grids (e.g. 3 columns for ultrawide).
-- [ ] 8. Arrange only selected windows (e.g. the two most recently used).
-- [ ] 9. Automation: URL scheme `ordino://arrange?layout=…`, App Intents for Shortcuts.app, Raycast extension.
-- [ ] 10. Stage Manager / Spaces awareness: per-Space layouts.
-- [ ] 11. First-run walkthrough polish (Accessibility + the three basic shortcuts).
+- [x] 6. Gaps and margins preview: Settings › Layouts already draws a live diagram from the gap/margin/ratio sliders.
+- [x] 7. Custom layouts: `CustomLayouts.swift` + `GridLayout` (tested). Settings › Layouts › Custom layouts
+  (name, columns 1–6, rows 1–4, shortcut, apply); menu › Custom Layouts. Most recent windows fill the grid.
+- [x] 8. Arrange only recent windows: commands "Arrange Two/Three Recent Windows" (Settings › Shortcuts, no default
+  keys) and `ordino://arrange?recent=N`; `AXBackend.windowLimit`.
+- [x] 9. Automation: `ordino://` links (`AutomationURL`, tested; CFBundleURLTypes in bundle-app.sh), README
+  "Automation" for Shortcuts.app and Raycast Quicklinks.
+  - Not done: native App Intents (needs Xcode's metadata processor, not available to a SwiftPM build) and a
+    Raycast store extension (separate TypeScript repo). Links cover both use cases for now.
+- [x] 10. Spaces: layout choices remembered per Space (`Spaces.activeSpaceID` via CGSGetActiveSpace looked up at run
+  time, `ArrangeCoordinator.spaceID`, falls back to the display-wide choice). Stage Manager: only on-screen windows
+  are arranged, so a stage's windows are what gets arranged. Per-Space workspaces are not done.
+- [x] 11. Welcome window lists the basic shortcuts (read live from the user's settings) and where everything is.
+- [x] Middle display halves: an edge shared with another display snaps after resting there ~0.35 s.
 
 ## Project / ops follow-ups
 

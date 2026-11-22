@@ -75,6 +75,9 @@ public final class ArrangeCoordinator {
 
     public var preferences: LayoutPreferences
     public var cycleInterval: Duration = .seconds(2)
+    /// The current desktop Space (Mission Control), when known: layout choices are remembered per Space,
+    /// falling back to the display-wide choice on a Space without its own.
+    public var spaceID: String?
     /// Maximum number of undo steps kept.
     public var undoLimit = 20
 
@@ -256,9 +259,12 @@ public final class ArrangeCoordinator {
     private func resolve(_ action: Action, display: DisplaySnapshot, windows: [WindowInfo]) -> Resolution {
         let placed = Set(windows.prefix(max(1, preferences.maxWindows)).map(\.id))
         let count = placed.count
-        let key = "\(display.id)#\(count)"
+        let base = "\(display.id)#\(count)"
+        let key = spaceID.map { "\(base)@\($0)" } ?? base
         let candidates = engine.candidates(count: count, area: display.visibleFrame, preferences: preferences)
-        let remembered = preferredLayouts[key].flatMap { candidates.contains($0) ? $0 : nil }
+        let remembered = (preferredLayouts[key] ?? preferredLayouts[base]).flatMap {
+            candidates.contains($0) ? $0 : nil
+        }
         let continuing = isContinuation(display: display, windows: placed)
         let current = continuing ? last?.layout : nil
 

@@ -199,6 +199,41 @@ struct LayoutsPane: View {
             .listRowBackground(Color.clear)
 
             Section {
+                if settings.customLayouts.isEmpty {
+                    Text("No custom layouts yet.").foregroundStyle(.secondary)
+                }
+                ForEach($settings.customLayouts) { $layout in
+                    HStack(spacing: 12) {
+                        TextField("Name", text: $layout.name)
+                            .textFieldStyle(.plain)
+                            .font(.body.weight(.medium))
+                        Spacer()
+                        Stepper("\(layout.columns) col", value: $layout.columns, in: 1...6).fixedSize()
+                        Stepper("\(layout.rows) row", value: $layout.rows, in: 1...4).fixedSize()
+                        KeyboardShortcuts.Recorder(for: layout.shortcutName)
+                        Button("Apply") { app.applyCustomLayout(layout.id) }
+                        Button {
+                            app.customLayouts.delete(layout.id)
+                        } label: {
+                            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Delete \(layout.name)")
+                    }
+                }
+                Button("Add Custom Layout") {
+                    app.customLayouts.add()
+                    app.registerCustomLayoutShortcuts()
+                }
+            } header: {
+                SectionTitle("Custom layouts", symbol: "rectangle.split.3x1")
+            } footer: {
+                Footnote(
+                    "A grid of equal cells, e.g. 3 columns for an ultrawide display. The most recently used windows fill it row by row; extra windows stay where they are."
+                )
+            }
+
+            Section {
                 if settings.workspaces.isEmpty {
                     Text("No workspaces yet.").foregroundStyle(.secondary)
                 }
