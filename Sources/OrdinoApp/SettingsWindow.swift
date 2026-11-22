@@ -108,7 +108,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     private func makeWindow() -> NSWindow {
         let root = SettingsView(app: app, navigation: navigation)
-        let controller = NSHostingController(rootView: root)
+        let controller = NSHostingController(
+            rootView: root.frame(
+                minWidth: Self.minSize.width, idealWidth: Self.defaultSize.width, maxWidth: Self.maxSize.width,
+                minHeight: Self.minSize.height, idealHeight: Self.defaultSize.height, maxHeight: Self.maxSize.height))
+        // The window takes its limits from the SwiftUI frame above (the hosting controller would otherwise
+        // replace contentMinSize/contentMaxSize with the content's own, much looser, limits).
+        controller.sizingOptions = [.minSize, .maxSize]
         let window = NSWindow(contentViewController: controller)
         window.title = "ordino Settings"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
@@ -119,6 +125,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         // stretch into a wide empty strip or squeeze their controls off the edge.
         window.contentMinSize = Self.minSize
         window.contentMaxSize = Self.maxSize
+        // No full screen: the green button zooms within the limits instead.
+        window.collectionBehavior.insert(.fullScreenNone)
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.setFrameAutosaveName("ordinoSettings")
