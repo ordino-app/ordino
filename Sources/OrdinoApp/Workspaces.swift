@@ -20,7 +20,7 @@ struct Workspace: Codable, Identifiable, Equatable {
     var name: String
     var slots: [Slot]
 
-    var shortcutName: KeyboardShortcuts.Name { .init("workspace.\(id.uuidString)") }
+    var shortcutName: KeyboardShortcuts.Name { .init("workspace-\(id.uuidString)") }
     var summary: String { slots.map(\.appName).joined(separator: ", ") }
 }
 
