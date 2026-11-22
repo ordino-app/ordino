@@ -16,3 +16,4 @@ web/media/*.png
 .idea/
 .impeccable/hook.cache.json
 .impeccable/config.local.json
+NAVOD-*.md
