@@ -3,29 +3,46 @@ import Geometry
 import LayoutEngine
 import WindowKit
 
-/// Drag a window to a screen edge to snap it (like Windows): left/right edge = half,
-/// top edge = maximize, corners = quarters. A translucent preview shows the target while
-/// dragging; releasing the mouse there applies the window action. Hold ⌘ to drag freely.
+/// Drag a window to a screen edge to snap it (like Windows): left/right edge = half, top edge = maximize,
+/// the very corners = quarters. A translucent preview shows the target while dragging; releasing the mouse
+/// there places the window on the display under the cursor. Hold ⌘ to drag freely. Dragging a window that
+/// ordino placed gives it its earlier size back, so it doesn't stay a huge half while you move it.
 @MainActor
 final class DragSnapController {
     private let settings: Settings
-    private let perform: (WindowAction) -> Void
+    private let windowActions: WindowActionController
+    private let onSnapped: (WindowActionController.Outcome) -> Void
     private var monitor: Any?
-    private var drag: (windowID: WindowID, origin: Rect, bundleID: String?)?
+
+    /// A left-button drag that may still turn out to be a window move.
+    private var tracking = false
     private var isMoving = false
-    /// Drag events checked without the window moving; after a few, it's not a window move (text selection,
-    /// file drag, resize) and the AX reads stop for this drag.
-    private var misses = 0
+    /// The dragged window and its frame when the drag started.
+    private var drag: (window: DiscoveredWindow, origin: Rect)?
+    /// Frame Restore should return to after this snap: the window's frame from before the drag.
+    private var restoreFrame: Rect?
+    private var dragStart: ContinuousClock.Instant?
+    private var lastCheck: ContinuousClock.Instant?
     private var target: WindowAction?
     private lazy var preview = SnapPreviewPanel()
+    private let mover = WindowMover()
 
-    /// How close to an edge (points) the cursor must be; corners take this much along each edge.
-    private let edge: Double = 6
-    private let corner: Double = 48
-
-    init(settings: Settings, perform: @escaping (WindowAction) -> Void) {
+    init(
+        settings: Settings, windowActions: WindowActionController,
+        onSnapped: @escaping (WindowActionController.Outcome) -> Void
+    ) {
         self.settings = settings
-        self.perform = perform
+        self.windowActions = windowActions
+        self.onSnapped = onSnapped
+    }
+
+    /// macOS 15+ has its own drag-to-edge tiling (System Settings › Desktop & Dock). When it's on, both would
+    /// act on the same drag, so ordino stays out of the way. A missing key means the system default: on.
+    static var systemTilingEnabled: Bool {
+        let d = UserDefaults(suiteName: "com.apple.WindowManager")
+        let edges = d?.object(forKey: "EnableTilingByEdgeDrag") as? Bool ?? true
+        let top = d?.object(forKey: "EnableTopTilingByEdgeDrag") as? Bool ?? true
+        return edges || top
     }
 
     func start() {
@@ -48,53 +65,94 @@ final class DragSnapController {
         switch type {
         case .leftMouseDown:
             reset()
-            guard settings.snapOnDrag, AccessibilityPermission.isTrusted,
-                let window = WindowDiscovery.focusedWindow()
-            else { return }
-            drag = (window.info.id, window.info.frame, window.bundleID)
+            tracking = settings.snapOnDrag && AccessibilityPermission.isTrusted && !Self.systemTilingEnabled
         case .leftMouseDragged:
-            guard let d = drag, settings.snapOnDrag, !flags.contains(.command) else { return hidePreview() }
-            if let b = d.bundleID, settings.ignoredApps.contains(b) { return }
-            if !isMoving {
-                // Only window moves snap (not resizing, selecting text or dragging files): the focused
-                // window's origin has to change while its size stays the same.
-                guard let now = WindowDiscovery.focusedWindow(), now.info.id == d.windowID else { return giveUp() }
-                let f = now.info.frame
-                let moved = abs(f.x - d.origin.x) > 2 || abs(f.y - d.origin.y) > 2
-                let sameSize = abs(f.w - d.origin.w) < 2 && abs(f.h - d.origin.h) < 2
-                guard sameSize else { return giveUp(now: true) }
-                guard moved else { return giveUp() }
-                isMoving = true
-            }
+            guard tracking else { return }
+            if !isMoving { detectMove() }
+            guard isMoving else { return }
+            if flags.contains(.command) { return hidePreview() }
             updateTarget()
         case .leftMouseUp:
             let action = target
             let moving = isMoving
+            let original = restoreFrame
             reset()
-            if moving, let action { perform(action) }
+            guard moving, let action else { return }
+            log("snap \(action.rawValue)")
+            // Let macOS finish its own window drag first, or it can put the window back.
+            Task { @MainActor [windowActions, onSnapped] in
+                try? await Task.sleep(for: .milliseconds(80))
+                let outcome = await windowActions.perform(action, onDisplayUnderMouse: true, originalFrame: original)
+                onSnapped(outcome)
+            }
         default:
             break
         }
     }
 
+    /// Decides whether this drag moves a window. The click focuses the window first, so it's read on the drag,
+    /// not on mouse-down. A move changes the focused window's origin but not its size (a resize, a text
+    /// selection or a file drag doesn't). Reads are throttled, and after 0.6 s without the window moving the
+    /// drag is ignored.
+    private func detectMove() {
+        let now = ContinuousClock.now
+        if dragStart == nil { dragStart = now }
+        if let last = lastCheck, now - last < .milliseconds(30) { return }
+        lastCheck = now
+        if let start = dragStart, now - start > .milliseconds(600) {
+            tracking = false
+            return
+        }
+        guard let window = WindowDiscovery.focusedWindow() else { return }
+        if let b = window.bundleID, settings.ignoredApps.contains(b) {
+            tracking = false
+            return
+        }
+        guard let d = drag, d.window.info.id == window.info.id else {
+            drag = (window, window.info.frame)
+            return
+        }
+        let f = window.info.frame
+        let moved = abs(f.x - d.origin.x) > 1 || abs(f.y - d.origin.y) > 1
+        let sameSize = abs(f.w - d.origin.w) < 2 && abs(f.h - d.origin.h) < 2
+        guard sameSize else {
+            tracking = false  // resizing
+            return
+        }
+        guard moved else { return }
+        isMoving = true
+        restoreFrame = d.origin
+        log("move \(window.appName)")
+        unsnapIfPlaced(window, startFrame: d.origin)
+    }
+
+    /// A window ordino placed (snapped, halved...) gets its earlier size back as soon as it's dragged away,
+    /// centred horizontally under the cursor, like on Windows.
+    private func unsnapIfPlaced(_ window: DiscoveredWindow, startFrame: Rect) {
+        guard let original = windowActions.originalFrameIfPlaced(window.info.id, frame: startFrame),
+            original.w < startFrame.w - 2 || original.h < startFrame.h - 2
+        else { return }
+        let (px, _) = Self.mouseInQuartz()
+        let current = WindowDiscovery.focusedWindow()?.info.frame ?? startFrame
+        let frame = Rect(x: px - original.w / 2, y: current.y, w: original.w, h: original.h)
+        windowActions.forgetPlacement(window.info.id)
+        restoreFrame = original
+        log("unsnap to \(Int(original.w))x\(Int(original.h))")
+        Task { [mover] in _ = await mover.apply([window.info.id: frame], to: [window]) }
+    }
+
     /// Picks the snap zone under the cursor and shows its preview.
     private func updateTarget() {
         let (px, py) = Self.mouseInQuartz()
-        guard let display = Displays.all().first(where: { $0.frame.contains(pointX: px, y: py) }) else {
-            return hidePreview()
-        }
-        guard let action = SnapZone.action(x: px, y: py, in: display.frame, edge: edge, corner: corner),
+        let displays = Displays.all()
+        guard let display = displays.first(where: { $0.frame.contains(pointX: px, y: py) }),
+            let action = SnapZone.action(
+                x: px, y: py, in: display.frame, others: displays.filter { $0.id != display.id }.map(\.frame)),
             let frame = settings.windowActionEngine.frame(
                 for: action, window: drag?.origin ?? .zero, area: display.visibleFrame)
         else { return hidePreview() }
         target = action
         preview.show(quartzFrame: frame)
-    }
-
-    /// Stops checking this drag after a handful of non-moving events, or at once when the window is resizing.
-    private func giveUp(now: Bool = false) {
-        misses += 1
-        if now || misses > 6 { drag = nil }
     }
 
     private func hidePreview() {
@@ -103,9 +161,12 @@ final class DragSnapController {
     }
 
     private func reset() {
-        drag = nil
+        tracking = false
         isMoving = false
-        misses = 0
+        drag = nil
+        restoreFrame = nil
+        dragStart = nil
+        lastCheck = nil
         hidePreview()
     }
 
@@ -113,6 +174,21 @@ final class DragSnapController {
     static func mouseInQuartz() -> (Double, Double) {
         let m = NSEvent.mouseLocation
         return (Double(m.x), SnapPreviewPanel.primaryHeight - Double(m.y))
+    }
+
+    /// Debug builds append to ~/Library/Logs/ordino-snap.log, to diagnose drags without a debugger.
+    private func log(_ message: @autoclosure () -> String) {
+        #if DEBUG
+            let line = "\(Date()) \(message())\n"
+            let url = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Logs/ordino-snap.log")
+            if let h = try? FileHandle(forWritingTo: url) {
+                h.seekToEndOfFile()
+                h.write(Data(line.utf8))
+                try? h.close()
+            } else {
+                try? Data(line.utf8).write(to: url)
+            }
+        #endif
     }
 }
 
@@ -145,9 +221,8 @@ final class SnapPreviewPanel: NSPanel {
 
     func show(quartzFrame r: Rect) {
         let frame = NSRect(x: r.x, y: Self.primaryHeight - r.y - r.h, width: r.w, height: r.h).insetBy(dx: 4, dy: 4)
-        if !isVisible || self.frame != frame {
-            setFrame(frame, display: true)
-            orderFrontRegardless()
-        }
+        guard !isVisible || self.frame != frame else { return }
+        setFrame(frame, display: true)
+        orderFrontRegardless()
     }
 }

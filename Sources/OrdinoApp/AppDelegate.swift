@@ -34,7 +34,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updater.onChange = { [weak self] in self?.menu?.refresh() }
         observeSettings()
         observeDisplayChanges()
-        dragSnap = DragSnapController(settings: settings) { [weak self] in self?.performWindowAction($0) }
+        dragSnap = DragSnapController(settings: settings, windowActions: windowActions) { [weak self] outcome in
+            if case .done(let action, let appName) = outcome, self?.settings.showActionHUD == true {
+                self?.hud.show("\(action.title) · \(appName)")
+            }
+        }
         syncDragSnap()
         #if DEBUG
             DebugSnapshots.runIfRequested(app: self)
