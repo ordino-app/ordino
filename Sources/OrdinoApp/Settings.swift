@@ -65,6 +65,8 @@ final class Settings {
 
     var showArrangeHUD: Bool { didSet { save(showArrangeHUD, "showArrangeHUD") } }
     var showActionHUD: Bool { didSet { save(showActionHUD, "showActionHUD") } }
+    /// Put windows back in the last layout of each display after a monitor is connected or disconnected.
+    var rearrangeOnDisplayChange: Bool { didSet { save(rearrangeOnDisplayChange, "rearrangeOnDisplayChange") } }
     var showMenuBarIcon: Bool { didSet { save(showMenuBarIcon, "showMenuBarIcon") } }
 
     // MARK: Apps
@@ -73,6 +75,9 @@ final class Settings {
     var primaryApps: [String] { didSet { save(primaryApps, "primaryApps") } }
     /// Apps ordino never moves.
     var ignoredApps: [String] { didSet { save(ignoredApps, "excludedBundleIDs") } }
+    /// Per-app placement rules: bundle ID -> WindowAction raw value. Ruled apps are left out of
+    /// layouts and put in their place after each arrange.
+    var appRules: [String: String] { didSet { save(appRules, "appRules") } }
 
     // MARK: Updates and shortcuts
 
@@ -96,6 +101,8 @@ final class Settings {
             defaults.string(forKey: "arrangeTarget").flatMap(ArrangeTarget.init(rawValue:)) ?? .displayUnderMouse
         showArrangeHUD = defaults.object(forKey: "showArrangeHUD") as? Bool ?? true
         showActionHUD = defaults.object(forKey: "showActionHUD") as? Bool ?? false
+        rearrangeOnDisplayChange = defaults.object(forKey: "rearrangeOnDisplayChange") as? Bool ?? true
+        appRules = defaults.dictionary(forKey: "appRules") as? [String: String] ?? [:]
         showMenuBarIcon = defaults.object(forKey: "showMenuBarIcon") as? Bool ?? true
         primaryApps = defaults.stringArray(forKey: "primaryApps") ?? []
         ignoredApps = defaults.stringArray(forKey: "excludedBundleIDs") ?? []

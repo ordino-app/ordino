@@ -1,5 +1,6 @@
 import AppKit
 import ArrangeCore
+import Geometry
 import KeyboardShortcuts
 import LayoutEngine
 import WindowKit
@@ -32,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu = MenuController(app: self)
         updater.onChange = { [weak self] in self?.menu?.refresh() }
         observeSettings()
+        observeDisplayChanges()
         #if DEBUG
             DebugSnapshots.runIfRequested(app: self)
             if UserDefaults.standard.string(forKey: "ordinoSnapshotDir") != nil { return }
@@ -74,6 +76,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let target = display ?? arrangeDisplay()
         Task {
             let outcome = await coordinator.perform(action, focusedID: focusedID, primaryID: primaryID, display: target)
+            if case .arranged(let r) = outcome, let id = target?.id { lastLayouts[id] = r.layout }
+            if let target { await applyAppRules(on: target) }
             settings.preferredLayouts = coordinator.preferredLayouts
             if let text = message(for: outcome) { hud.show(text) }
             menu?.refresh()
@@ -106,6 +110,70 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case .singleDisplay: hud.show("Only one display is connected")
             case .notResizable(let appName): hud.show("\(appName) can't be resized")
             }
+        }
+    }
+
+    // MARK: - Per-app rules
+
+    /// Puts windows of apps with a rule (Settings › Apps › Rules) in their place on `display`.
+    /// Those apps are excluded from layouts, so this runs after every arrange.
+    func applyAppRules(on display: DisplaySnapshot) async {
+        guard !settings.appRules.isEmpty, let info = Displays.all().first(where: { $0.uuid == display.id }) else {
+            return
+        }
+        let engine = settings.windowActionEngine
+        let windows = WindowDiscovery().windows(on: info, focusedID: nil).windows
+        var frames: [WindowID: Rect] = [:]
+        var ruled: [DiscoveredWindow] = []
+        for w in windows {
+            guard let id = w.bundleID, let raw = settings.appRules[id], let action = WindowAction(rawValue: raw),
+                let frame = engine.frame(for: action, window: w.info.frame, area: info.visibleFrame)
+            else { continue }
+            frames[w.info.id] = frame
+            ruled.append(w)
+        }
+        if !frames.isEmpty { _ = await WindowMover().apply(frames, to: ruled) }
+    }
+
+    func setRule(_ action: WindowAction?, bundleID: String) {
+        settings.appRules[bundleID] = action?.rawValue
+    }
+
+    // MARK: - Displays connected or disconnected
+
+    /// Last layout ordino applied on each display (by display UUID), for re-arranging after a display change.
+    private var lastLayouts: [String: LayoutID] = [:]
+    private var displayChangeTask: Task<Void, Never>?
+
+    private func observeDisplayChanges() {
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.displaysChanged() }
+        }
+    }
+
+    /// Waits for macOS to finish moving windows between displays, then puts each display that ordino
+    /// arranged before back into its last layout. Displays ordino never arranged are left alone.
+    private func displaysChanged() {
+        displayChangeTask?.cancel()
+        guard settings.rearrangeOnDisplayChange, AccessibilityPermission.isTrusted, !lastLayouts.isEmpty else { return }
+        displayChangeTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard let self, !Task.isCancelled else { return }
+            var arranged = 0
+            for info in Displays.all() {
+                guard let layout = lastLayouts[info.uuid] else { continue }
+                let display = DisplaySnapshot(id: info.uuid, name: info.name, visibleFrame: info.visibleFrame)
+                if case .arranged = await coordinator.perform(.layout(layout), focusedID: nil, display: display) {
+                    arranged += 1
+                }
+                await applyAppRules(on: display)
+            }
+            if arranged > 0, settings.showArrangeHUD {
+                hud.show("Displays changed · re-arranged \(arranged) display\(arranged == 1 ? "" : "s")")
+            }
+            menu?.refresh()
         }
     }
 
@@ -159,7 +227,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func syncSettings() {
-        backend.excludedBundleIDs = Set(settings.ignoredApps)
+        backend.excludedBundleIDs = Set(settings.ignoredApps).union(settings.appRules.keys)
         coordinator.preferredPrimaryApps = settings.primaryApps
         menu?.setVisible(settings.showMenuBarIcon)
     }
@@ -168,6 +236,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func observeSettings() {
         withObservationTracking {
             _ = settings.ignoredApps
+            _ = settings.appRules
             _ = settings.primaryApps
             _ = settings.showMenuBarIcon
         } onChange: { [weak self] in

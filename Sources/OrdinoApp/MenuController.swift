@@ -112,6 +112,7 @@ final class MenuController: NSObject, NSMenuDelegate {
             }
             ignore.state = ignored ? .on : .off
             menu.addItem(ignore)
+            menu.addItem(ruleMenu(for: frontmost.bundleID, name: frontmost.name))
             menu.addItem(.separator())
         }
 
@@ -300,6 +301,24 @@ final class MenuController: NSObject, NSMenuDelegate {
         let entry = commandItem(.window(action)) { [weak self] in self?.app.perform(.window(action)) }
         entry.image = ActionIcons.image(for: action)
         return entry
+    }
+
+    /// "Always Place <App>" submenu: a per-app rule (Settings › Apps › Rules).
+    private func ruleMenu(for bundleID: String, name: String) -> NSMenuItem {
+        let current = app.settings.appRules[bundleID].flatMap(WindowAction.init(rawValue:))
+        let parent = NSMenuItem(title: "Always Place \(name)", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        let none = item("Not Set") { [weak self] in self?.app.setRule(nil, bundleID: bundleID) }
+        none.state = current == nil ? .on : .off
+        sub.addItem(none)
+        sub.addItem(.separator())
+        for action in WindowAction.ruleChoices {
+            let i = item(action.title) { [weak self] in self?.app.setRule(action, bundleID: bundleID) }
+            i.state = current == action ? .on : .off
+            sub.addItem(i)
+        }
+        parent.submenu = sub
+        return parent
     }
 
     private func item(_ title: String, symbol: String? = nil, perform: @escaping @MainActor () -> Void) -> NSMenuItem {

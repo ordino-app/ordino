@@ -81,6 +81,16 @@ struct GeneralPane: View {
             }
 
             Section {
+                ToggleRow(
+                    symbol: "display.2", title: "Re-arrange when displays change",
+                    help:
+                        "After you connect or disconnect a monitor, ordino puts the windows on each display you arranged before back into that display's last layout.",
+                    isOn: $settings.rearrangeOnDisplayChange)
+            } header: {
+                SectionTitle("Displays", symbol: "display")
+            }
+
+            Section {
                 SettingRow(
                     symbol: "hand.raised", title: "Accessibility",
                     help:
@@ -398,6 +408,12 @@ struct ShortcutRow: View {
 // MARK: - Apps
 
 struct AppsPane: View {
+    private func ruleBinding(_ bundleID: String) -> Binding<String> {
+        Binding(
+            get: { settings.appRules[bundleID] ?? WindowAction.leftHalf.rawValue },
+            set: { settings.appRules[bundleID] = $0 })
+    }
+
     @Bindable var settings: Settings
 
     var body: some View {
@@ -420,6 +436,36 @@ struct AppsPane: View {
                 SectionTitle("Ignored", symbol: "eye.slash")
             } footer: {
                 Footnote("ordino never moves windows of these apps, neither when arranging nor with window actions.")
+            }
+
+            Section {
+                if settings.appRules.isEmpty {
+                    Text("No rules.").foregroundStyle(.secondary)
+                }
+                ForEach(settings.appRules.keys.sorted(), id: \.self) { bundleID in
+                    HStack {
+                        AppLabel(bundleID: bundleID)
+                        Spacer()
+                        Picker("Place", selection: ruleBinding(bundleID)) {
+                            ForEach(WindowAction.ruleChoices) { Text($0.title).tag($0.rawValue) }
+                        }
+                        .labelsHidden()
+                        .fixedSize()
+                        Button {
+                            settings.appRules[bundleID] = nil
+                        } label: {
+                            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Remove the rule for \(AppLabel.name(for: bundleID))")
+                    }
+                }
+            } header: {
+                SectionTitle("Rules", symbol: "pin")
+            } footer: {
+                Footnote(
+                    "Windows of these apps always go to their place and are left out of layouts. Add a rule from the menu bar: Always Place <app>."
+                )
             }
         }
         .formStyle(.grouped)

@@ -253,3 +253,12 @@ public struct WindowActionEngine: Sendable {
         return Rect(x: clamp(r.x, a.minX, a.maxX - w), y: clamp(r.y, a.minY, a.maxY - h), w: w, h: h)
     }
 }
+
+extension WindowAction {
+    /// Placements that make sense as a standing per-app rule.
+    public static let ruleChoices: [WindowAction] = [
+        .leftHalf, .rightHalf, .topHalf, .bottomHalf,
+        .topLeft, .topRight, .bottomLeft, .bottomRight,
+        .firstThird, .centerThird, .lastThird, .maximize, .almostMaximize, .center,
+    ]
+}

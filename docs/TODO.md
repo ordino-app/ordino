@@ -10,15 +10,18 @@ Status: `[x]` done · `[~]` in progress · `[ ]` not started. Keep this file cur
   - "Save current arrangement as workspace…" in the menu captures bundle IDs + frames of the display under the mouse.
   - Apply: `NSWorkspace.openApplication` for missing apps, wait for their first window (poll ≤5 s), then move with `WindowMover`.
   - Settings pane "Workspaces": list, rename, delete, a shortcut per workspace (dynamic `KeyboardShortcuts.Name`).
-- [~] **2. Re-arrange when displays change.** After a monitor is connected or disconnected, put the windows back
-  in the layout last used on each display. Status in "Progress log" below.
+- [x] **2. Re-arrange when displays change.** After a monitor is connected or disconnected (2 s debounce), every
+  display ordino arranged before gets its last layout again (`AppDelegate.displaysChanged`). Toggle in Settings ›
+  General › Displays (on by default). The layout memory is in-memory only: after relaunching ordino a display is
+  re-arranged only once it has been arranged again. Not yet tested with a real external monitor.
 - [x] **3. Move window to another display** keeping its relative position: Next/Previous Display
   (⌃⌥⌘→ / ⌃⌥⌘←), `WindowActionEngine.frame(movingWindow:from:to:)`. Shipped in 0.2.
-- [ ] **4. Per-app rules.** "Slack always bottom-right", "Terminal never arranged".
+- [x] **4. Per-app rules** (first version, see below). "Slack always bottom-right", "Terminal never arranged".
   - "Never arranged" already exists: Ignored apps (Settings › Apps). Turn that list into "Rules" and add
     `AppRule { bundleID, action: WindowAction }` (e.g. `.bottomRightQuarter`).
-  - When arranging, ruled windows go to their action's frame and are left out of the layout; simplest first
-    version arranges the remaining windows normally in the full area.
+  - Done: `Settings.appRules` (bundle ID -> WindowAction), menu "Always Place <app>", Settings › Apps › Rules.
+    Ruled apps are excluded from layouts and placed after each arrange (`AppDelegate.applyAppRules`).
+  - Still open: the layout still uses the full area (it may overlap a ruled window); subtract ruled rects.
   - Later: apply the rule when the app opens a new window (AXObserver `kAXWindowCreatedNotification`).
 - [ ] **5. Drag to the screen edge to snap** (like Windows / Rectangle).
   - `NSEvent.addGlobalMonitorForEvents([.leftMouseDragged, .leftMouseUp])`; while dragging, confirm the focused
@@ -49,4 +52,5 @@ Status: `[x]` done · `[~]` in progress · `[ ]` not started. Keep this file cur
 
 ## Progress log
 
-- 2026-11-22: roadmap written; item 3 confirmed already shipped. Item 2 started on branch `feat/multi-display-rules`.
+- 2026-11-22: roadmap written; item 3 confirmed already shipped. Items 2 and 4 (first version) landed on
+  `feat/multi-display-rules`. Items 1 and 5 not started: next up is 5 (drag to snap), then 1 (workspaces).
