@@ -8,7 +8,7 @@ ordino is free and isn't notarized by Apple (that needs a paid developer account
 4. Open **System Settings > Privacy & Security**, scroll down to the message about ordino and click **Open Anyway**, then confirm.
 5. ordino shows its welcome window. Click **Open System Settings** and turn on **ordino** under **Accessibility**. ordino notices by itself and continues.
 
-That's it. Press **⌃⌥⌘A** to arrange the display under the mouse.
+That's it. Press **⌥⌘A** to arrange the display under the mouse.
 
 ## Updates
 

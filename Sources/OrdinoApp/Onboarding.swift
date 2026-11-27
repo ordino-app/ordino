@@ -90,7 +90,7 @@ private struct OnboardingView: View {
                 .foregroundStyle(.tint)
             Text("Every window, in its place.").font(.title.weight(.semibold))
             Text(
-                "ordino arranges all windows on a display with one keystroke: ⌃⌥⌘A. Press it again to try the next layout."
+                "ordino arranges all windows on a display with one keystroke: ⌥⌘A. Press it again to try the next layout."
             )
             .foregroundStyle(.secondary)
 
@@ -99,9 +99,9 @@ private struct OnboardingView: View {
                     .foregroundStyle(.green).font(.headline)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Try these").font(.headline)
-                    TipRow(keys: Self.keys(.arrange, fallback: "⌃⌥⌘A"), text: "Arrange every window on the display")
-                    TipRow(keys: Self.keys(.arrange, fallback: "⌃⌥⌘A") + " again", text: "Cycle to the next layout")
-                    TipRow(keys: Self.keys(.undo, fallback: "⌃⌥⌘Z"), text: "Put the windows back")
+                    TipRow(keys: Self.keys(.arrange, fallback: "⌥⌘A"), text: "Arrange every window on the display")
+                    TipRow(keys: Self.keys(.arrange, fallback: "⌥⌘A") + " again", text: "Cycle to the next layout")
+                    TipRow(keys: Self.keys(.undo, fallback: "⌥⌘Z"), text: "Put the windows back")
                     TipRow(keys: "Drag", text: "Pull a window to a screen edge or up to the top for more layouts")
                 }
                 Text("Everything else is in the ordino menu in the menu bar: workspaces, custom layouts, app rules.")
@@ -139,7 +139,7 @@ private struct OnboardingView: View {
 }
 
 extension OnboardingView {
-    /// The shortcut the user has for a command, as shown in menus (e.g. "⌃⌥⌘A").
+    /// The shortcut the user has for a command, as shown in menus (e.g. "⌥⌘A").
     fileprivate static func keys(_ command: Command, fallback: String) -> String {
         KeyboardShortcuts.getShortcut(for: command.shortcutName).map { "\($0)" } ?? fallback
     }
