@@ -40,7 +40,7 @@ final class SnapBarPanel: NSPanel {
     }
 }
 
-private struct SnapBarView: View {
+struct SnapBarView: View {
     let model: SnapBarModel
 
     var body: some View {
@@ -69,7 +69,7 @@ private struct GroupView: View {
                 ForEach(Array(cells.enumerated()), id: \.offset) { _, c in
                     let on = c.action == hovered
                     RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(on ? Color.accentColor : Color.primary.opacity(0.14))
+                        .fill(on ? Color.ordino : Color.primary.opacity(0.14))
                         .frame(
                             width: max(1, c.unit.w * geo.size.width - SnapBar.cellGap),
                             height: max(1, c.unit.h * geo.size.height - SnapBar.cellGap)

@@ -103,7 +103,12 @@
     .win { padding: 4px; } .win__bar { height: 18px; font-size: 9px; padding: 0 6px; } .win__bar i { width: 6px; height: 6px; }
     .hud { font-size: 11px; padding: 6px 10px; } .hud .kbd { font-size: 14px; }
   }
-  @media (prefers-reduced-motion: reduce) { .win { transition: none; } .desk.is-scattered .win { transform: none; } .hud { display: none; } }
+  /* Reduce Motion: the windows don't fly; the scattered desk fades into the arranged one instead,
+     so the hero still shows what ordino does without movement */
+  @media (prefers-reduced-motion: reduce) {
+    .win { transition: opacity 320ms ease; }
+    .desk.is-fading .win { opacity: 0; }
+  }
 
   /* ---- the app frame: the menu bar menu beside the Layouts settings (sections-library.md app-frame) */
   .app.ui { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); margin-top: var(--s-7); background: var(--u-bg); border: 1px solid var(--u-border); border-radius: var(--u-r); box-shadow: var(--u-shadow); }
@@ -332,13 +337,22 @@
   .brew:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   @media (max-width: 639px) { .brew { display: none; } }   /* Homebrew is a Mac tool; the phone hero stays as it was */
 
+  /* menu item icons (drawn, like the macOS menu's SF Symbols) */
+  .mi__i { width: 13px; height: 10px; margin-right: 7px; border: 1.3px solid currentColor; border-radius: 2.5px; opacity: .75; flex: none; position: relative; }
+  .mi__i--grid { background: linear-gradient(currentColor, currentColor) 50% 0/1.3px 100% no-repeat, linear-gradient(currentColor, currentColor) 0 50%/100% 1.3px no-repeat; }
+  .mi__i--cols { background: linear-gradient(90deg, transparent 31%, currentColor 31% 38%, transparent 38% 62%, currentColor 62% 69%, transparent 69%); }
+  .mi__i--win { border-top-width: 3px; }
+  .mi__i--app { width: 11px; height: 11px; border-radius: 3px; }
+  /* the real snap bar in the drag-to-snap card */
+  .fv-shot { display: block; width: 100%; height: auto; border-radius: 10px; background: #2b2d31; }
+
   /* features: six cards, each with a tiny drawn screen of what it does */
   .feat-grid { row-gap: var(--s-6); }
   .feat { display: flex; flex-direction: column; gap: var(--s-3); }
   .feat h3 { font-size: 18px; } .feat p { color: var(--ink); }
   .fv { display: block; width: 100%; max-width: 220px; height: auto; }
   @media (max-width: 1023px) { #features .feat { grid-column: auto / span 6; } }
-  @media (max-width: 639px) { #features .feat { grid-column: 1 / -1; } #features .fv { max-width: 150px; } #features .feat { gap: var(--s-2); } }
+  @media (max-width: 639px) { #features .feat { grid-column: 1 / -1; } #features .fv { max-width: 164px; } #features .feat { gap: var(--s-2); } }
 
   /* a tall window (960 and up, e.g. a portrait or half-width window on a big display): the close and the
      statement are as tall as what they hold, not a whole screen, which left hundreds of empty pixels
@@ -462,42 +476,28 @@
   <section class="section" id="menu" aria-labelledby="menu-h">
     <div class="wrap">
       <div class="grid">
-        <div class="section-head span-5"><h2 id="menu-h">One menu for every window action.</h2></div>
+        <div class="section-head span-5"><h2 id="menu-h">One short menu for every window action.</h2></div>
         <div class="span-6 start-7 stack-4">
-          <p>Click the ordino icon in the menu bar. The card on top names the display, its window count and the layout ordino will use. Each action shows its shortcut.</p>
+          <p>Click the ordino icon in the menu bar. The card on top shows the display and the layout ordino will use; click another layout to switch. Moving one window, workspaces, custom grids and options for the app you are in sit one level down. Settings chooses what the menu shows and whether the icon is in colour.</p>
           <a class="link" href="#layouts">See how layouts are picked</a>
         </div>
       </div>
       <div class="ui app fill" role="img" aria-label="The ordino menu open under its menu bar icon, beside the Layouts settings with the Master + Stack preview" data-ui-pause-host>
         <div class="app__pane app__pane--list mac">
           <div class="menubar"><span class="menubar__ordino"><img loading="lazy" width="16" height="16" src="logo-mark.svg" alt=""></span><span>Mon 9:41</span></div>
-          <div class="mmenu" role="img" aria-label="The ordino menu: Arrange Windows, layouts, primary window, rotate, undo and the single-window actions with their shortcuts">
+          <div class="mmenu" role="img" aria-label="The ordino menu: the layout card, Arrange Windows, Undo, then Move Window, Workspaces, Custom Layouts and options for the active app">
             <div class="mmenu__card mmenu__card--real">
               <img src="media/menu-card.webp" width="320" height="252" loading="lazy" decoding="async" alt="">
             </div>
             <div class="mi is-on">Arrange Windows<span class="kbd">⌃⌥⌘A</span></div>
-            <div class="mi">Layout<span class="chev">›</span></div>
-            <div class="mi">Primary Window<span class="chev">›</span></div>
-            <div class="mi">Rotate Windows<span class="kbd">⌃⌥⌘R</span></div>
             <div class="mi">Undo Arrange<span class="kbd">⌃⌥⌘Z</span></div>
             <div class="msep"></div>
-            <div class="mi">Left<span class="kbd">⌃⌥←</span></div>
-            <div class="mi">Right<span class="kbd">⌃⌥→</span></div>
-            <div class="mi">Center</div>
-            <div class="mi">Top<span class="kbd">⌃⌥↑</span></div>
-            <div class="mi">Bottom<span class="kbd">⌃⌥↓</span></div>
-            <div class="mi">Top Left<span class="kbd">⌃⌥U</span></div>
-            <div class="mi">Top Right<span class="kbd">⌃⌥I</span></div>
-            <div class="mi">Maximize<span class="kbd">⌃⌥↩</span></div>
-            <div class="mi">Next Display<span class="kbd">⌃⌥⌘→</span></div>
-            <div class="mi">Move to Edge<span class="chev">›</span></div>
-            <div class="mi">Fourths<span class="chev">›</span></div>
-            <div class="mi">Sixths<span class="chev">›</span></div>
-            <div class="msep"></div>
-            <div class="mi">Ignore Browser</div>
+            <div class="mi"><span class="mi__i mi__i--win"></span>Move Window<span class="chev">›</span></div>
+            <div class="mi"><span class="mi__i mi__i--grid"></span>Workspaces<span class="chev">›</span></div>
+            <div class="mi"><span class="mi__i mi__i--cols"></span>Custom Layouts<span class="chev">›</span></div>
+            <div class="mi"><span class="mi__i mi__i--app"></span>Browser<span class="chev">›</span></div>
             <div class="msep"></div>
             <div class="mi">Settings…<span class="kbd">⌘,</span></div>
-            <div class="mi">About ordino</div>
             <div class="mi">Check for Updates…</div>
             <div class="msep"></div>
             <div class="mi">Quit ordino<span class="kbd">⌘Q</span></div>
@@ -575,24 +575,30 @@
     <div class="wrap">
       <div class="grid">
         <div class="span-5 stack-5">
-          <div class="section-head"><h2 id="shortcuts-h">Window shortcuts and settings. <span class="muted">Every shortcut can be changed.</span></h2></div>
+          <div class="section-head"><h2 id="shortcuts-h">Window shortcuts, grids and workspaces in Settings. <span class="muted">Every shortcut can be changed.</span></h2></div>
           <div class="tabs" role="tablist" aria-label="ordino settings">
             <button class="tab" type="button" role="tab" id="t-1" aria-selected="true" aria-controls="tab-1 screen-1">Snap one window</button>
-            <button class="tab" type="button" role="tab" id="t-2" aria-selected="false" aria-controls="tab-2 screen-2" tabindex="-1">Pick primary apps</button>
-            <button class="tab" type="button" role="tab" id="t-3" aria-selected="false" aria-controls="tab-3 screen-3" tabindex="-1">Set the basics</button>
-            <button class="tab" type="button" role="tab" id="t-4" aria-selected="false" aria-controls="tab-4 screen-4" tabindex="-1">Get updates</button>
+            <button class="tab" type="button" role="tab" id="t-2" aria-selected="false" aria-controls="tab-2 screen-2" tabindex="-1">Custom grids</button>
+            <button class="tab" type="button" role="tab" id="t-3" aria-selected="false" aria-controls="tab-3 screen-3" tabindex="-1">Workspaces</button>
+            <button class="tab" type="button" role="tab" id="t-4" aria-selected="false" aria-controls="tab-4 screen-4" tabindex="-1">Menu and icon</button>
+            <button class="tab" type="button" role="tab" id="t-5" aria-selected="false" aria-controls="tab-5 screen-5" tabindex="-1">Apps and rules</button>
+            <button class="tab" type="button" role="tab" id="t-6" aria-selected="false" aria-controls="tab-6 screen-6" tabindex="-1">Updates</button>
           </div>
-          <div role="tabpanel" id="tab-1" aria-labelledby="t-1"><p>Halves, corners, thirds, fourths, sixths, maximize and center. Press <span class="kbd">⌃⌥←</span> again to go from 1/2 to 2/3 to 1/3. Rectangle-style keys by default, Spectacle-style as a preset.</p></div>
-          <div role="tabpanel" id="tab-2" aria-labelledby="t-2" hidden><p>List the apps whose window always takes the large slot, in order. Apps you ignore are never moved.</p></div>
-          <div role="tabpanel" id="tab-3" aria-labelledby="t-3" hidden><p>Arrange the display under the pointer, try the next layout on a second press, and choose when a confirmation shows.</p></div>
-          <div role="tabpanel" id="tab-4" aria-labelledby="t-4" hidden><p>ordino checks, downloads and installs updates by itself, or when you press Check Now.</p></div>
+          <div role="tabpanel" id="tab-1" aria-labelledby="t-1"><p>Halves, corners, thirds, fourths, sixths, maximize and center, each with a shortcut you can change. Press <span class="kbd">⌃⌥←</span> again to go from 1/2 to 2/3 to 1/3.</p></div>
+          <div role="tabpanel" id="tab-2" aria-labelledby="t-2" hidden><p>Pick a shape from the gallery, like 3 columns for an ultrawide, see it drawn, give it a shortcut. Your most recent windows fill it.</p></div>
+          <div role="tabpanel" id="tab-3" aria-labelledby="t-3" hidden><p>Save the windows of a display as Coding or Writing. Apply one and missing apps open, then every window goes back to its place.</p></div>
+          <div role="tabpanel" id="tab-4" aria-labelledby="t-4" hidden><p>Choose a monochrome or colour menu bar icon, and which groups the menu shows. Snapping and display changes switch on or off here.</p></div>
+          <div role="tabpanel" id="tab-5" aria-labelledby="t-5" hidden><p>List the apps whose window takes the large slot, give apps a fixed place, or tell ordino to leave them alone.</p></div>
+          <div role="tabpanel" id="tab-6" aria-labelledby="t-6" hidden><p>ordino checks, downloads and installs updates by itself, or when you press Check Now.</p></div>
         </div>
         <div class="frame frame--split span-6 start-7" role="img" aria-label="The ordino Settings window">
           <div class="stage stage--fade-br">
             <div class="at-corner" id="screen-1"><div class="shot"><img src="media/settings-shortcuts.webp" alt="" width="1520" height="1240" loading="lazy" decoding="async"></div></div>
-            <div class="at-corner" id="screen-2" hidden><div class="shot"><img src="media/settings-apps.webp" alt="" width="1520" height="1240" loading="lazy" decoding="async"></div></div>
-            <div class="at-corner" id="screen-3" hidden><div class="shot"><img src="media/settings-general.webp" alt="" width="1520" height="1240" loading="lazy" decoding="async"></div></div>
-            <div class="at-corner" id="screen-4" hidden><div class="shot"><img src="media/settings-updates.webp" alt="" width="1520" height="1240" loading="lazy" decoding="async"></div></div>
+            <div class="at-corner" id="screen-2" hidden><div class="shot"><img src="media/settings-custom.webp" alt="" width="1520" height="1240" loading="lazy" decoding="async"></div></div>
+            <div class="at-corner" id="screen-3" hidden><div class="shot"><img src="media/settings-workspaces.webp" alt="" width="1520" height="1240" loading="lazy" decoding="async"></div></div>
+            <div class="at-corner" id="screen-4" hidden><div class="shot"><img src="media/settings-general.webp" alt="" width="1520" height="1240" loading="lazy" decoding="async"></div></div>
+            <div class="at-corner" id="screen-5" hidden><div class="shot"><img src="media/settings-apps.webp" alt="" width="1520" height="1240" loading="lazy" decoding="async"></div></div>
+            <div class="at-corner" id="screen-6" hidden><div class="shot"><img src="media/settings-updates.webp" alt="" width="1520" height="1240" loading="lazy" decoding="async"></div></div>
           </div>
         </div>
       </div>
@@ -604,7 +610,7 @@
       <div class="section-head"><h2 id="features-h">More ordino features for real desks. <span class="muted">More monitors, more ways to work.</span></h2></div>
       <div class="grid feat-grid">
         <article class="card card--open span-4 m-nolift feat">
-          <svg class="fv" viewBox="0 0 160 96" role="img" aria-label="A window snapped to the left half"><rect width="160" height="96" rx="10" fill="#2b2d31"/><rect x="6" y="6" width="72" height="84" rx="4" fill="#d9653b"/><rect x="82" y="6" width="72" height="40" rx="4" fill="#edeae4"/><rect x="82" y="50" width="72" height="40" rx="4" fill="#edeae4"/></svg>
+          <img class="fv-shot" src="media/snap-bar.webp" width="1020" height="144" loading="lazy" decoding="async" alt="The snap bar: layouts that appear at the top of the screen while you drag a window, with Two Thirds highlighted">
           <h3>Drag-to-snap windows</h3>
           <p>Pull a window to a screen edge for a half, into a corner for a quarter, or up to the top for a bar of layouts: thirds, two thirds, quarters.</p>
         </article>
@@ -630,7 +636,7 @@
         </article>
         <article class="card card--open span-4 m-nolift feat">
           <svg class="fv" viewBox="0 0 160 96" role="img" aria-label="An ordino link"><rect width="160" height="96" rx="10" fill="#2b2d31"/><text x="80" y="55" text-anchor="middle" font-family="DM Mono, ui-monospace, monospace" font-size="16" fill="#edeae4">ordino://arrange</text></svg>
-          <h3>ordino links for Shortcuts and Raycast</h3>
+          <h3>Links to arrange windows from Shortcuts</h3>
           <p>ordino:// links for Shortcuts, Raycast and scripts: arrange, switch layout or open a workspace.</p>
         </article>
       </div>

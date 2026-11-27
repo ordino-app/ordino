@@ -1,6 +1,7 @@
 // ordino site: small jobs the kit does not do (hero snap, download links, copy buttons).
 // 1. The hero desktop: the scattered windows snap into Master + Stack once after load (the HUD shows the
-//    shortcut), and again when the pointer or the focus enters the frame. Under reduced motion they stand arranged.
+//    shortcut), and again when the pointer or the focus enters the frame. Under Reduce Motion the scattered
+//    desk cross-fades into the arranged one instead of moving.
 // 2. The download links: the static href points at 0.2.0-beta.1; the update feed (same origin) upgrades the
 //    href and the version label to the newest release. Without script or feed the static link stays.
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -9,8 +10,19 @@ if (desk) {
   let busy = false;
   const play = (delay) => {
     if (busy) return; busy = true;
-    if (reduced) { desk.classList.remove('is-scattered'); busy = false; return; }
     desk.classList.add('is-scattered');
+    if (reduced) {
+      // No movement: fade the scattered windows out, place them, fade them back in arranged.
+      setTimeout(() => {
+        desk.classList.add('is-fading', 'is-hud');
+        setTimeout(() => {
+          desk.classList.remove('is-scattered');
+          requestAnimationFrame(() => desk.classList.remove('is-fading'));
+          setTimeout(() => { desk.classList.remove('is-hud'); busy = false; }, 1500);
+        }, 340);
+      }, delay);
+      return;
+    }
     setTimeout(() => {
       desk.classList.add('is-hud');
       requestAnimationFrame(() => desk.classList.remove('is-scattered'));

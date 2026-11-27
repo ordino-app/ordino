@@ -41,17 +41,66 @@
                             to: url.appendingPathComponent("menu-card-\(name)-\(suffix).png"))
                     }
                 }
+                await renderFeatureShots(app: app, to: url)
                 NSApp.terminate(nil)
             }
+        }
+
+        /// Long Settings panes with sample content (custom layouts, workspaces, menu options) and the snap bar,
+        /// for the website. The user's own settings are put back afterwards.
+        private static func renderFeatureShots(app: AppDelegate, to url: URL) async {
+            let s = app.settings
+            let saved = (s.customLayouts, s.workspaces, s.menuSections, s.menuBarIconStyle)
+            s.customLayouts = [
+                CustomLayout(name: "3 Columns", columns: 3, rows: 1),
+                CustomLayout(name: "2 × 2 Grid", columns: 2, rows: 2),
+            ]
+            s.workspaces = [
+                Workspace(
+                    name: "Coding",
+                    slots: [
+                        .init(bundleID: "sample.editor", appName: "Code Editor", x: 0, y: 0, w: 0.6, h: 1),
+                        .init(bundleID: "sample.browser", appName: "Browser", x: 0.6, y: 0, w: 0.4, h: 0.5),
+                        .init(bundleID: "sample.terminal", appName: "Terminal", x: 0.6, y: 0.5, w: 0.4, h: 0.5),
+                    ]),
+                Workspace(
+                    name: "Writing",
+                    slots: [
+                        .init(bundleID: "sample.notes", appName: "Notes", x: 0, y: 0, w: 0.5, h: 1),
+                        .init(bundleID: "sample.browser", appName: "Browser", x: 0.5, y: 0, w: 0.5, h: 1),
+                    ]),
+            ]
+            s.menuSections = MenuSection.defaults
+            s.menuBarIconStyle = .colorAutomatic
+            for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+                let suffix = appearance == .aqua ? "light" : "dark"
+                for pane in [SettingsPane.general, .layouts] {
+                    let navigation = SettingsNavigation()
+                    navigation.pane = pane
+                    await render(
+                        SettingsView(app: app, navigation: navigation), size: NSSize(width: 760, height: 1500),
+                        appearance: appearance,
+                        to: url.appendingPathComponent("settings-\(pane.rawValue)-tall-\(suffix).png"))
+                }
+                let model = SnapBarModel()
+                model.hoveredGroup = 2
+                model.hoveredAction = .firstTwoThirds
+                await render(
+                    SnapBarView(model: model).padding(24),
+                    size: NSSize(width: SnapBar.size.w + 48, height: SnapBar.size.h + 48),
+                    appearance: appearance, to: url.appendingPathComponent("snap-bar-\(suffix).png"))
+            }
+            (s.customLayouts, s.workspaces, s.menuSections, s.menuBarIconStyle) = saved
         }
 
         /// A preview with real installed apps on the first display (for its wallpaper).
         private static func samplePreview(layout: LayoutID, count: Int) -> ArrangeCoordinator.Preview? {
             guard let display = Displays.all().first else { return nil }
+            // Neutral sample apps (no real app icons or names in published images).
             let apps: [(String, String)] = [
-                ("Xcode", "com.apple.dt.Xcode"), ("Safari", "com.apple.Safari"), ("Notes", "com.apple.Notes"),
-                ("Mail", "com.apple.mail"), ("Google Chrome", "com.google.Chrome"), ("Terminal", "com.apple.Terminal"),
-                ("Calendar", "com.apple.iCal"),
+                ("Code Editor", "sample.editor"), ("Browser", "sample.browser"), ("Notes", "sample.notes"),
+                ("Mail", "sample.mail"), ("Design", "sample.design"), ("Terminal", "sample.terminal"),
+                ("Calendar", "sample.calendar"),
             ]
             // A neutral sample display: no personal wallpaper or monitor name in published images.
             let snapshot = DisplaySnapshot(
@@ -81,9 +130,14 @@
                 styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
             window.titlebarAppearsTransparent = true
             window.appearance = NSAppearance(named: appearance)
-            window.contentViewController = NSHostingController(rootView: view)
+            // Draw controls as in the active window (offscreen windows are never key, so toggles would look grey).
+            window.contentViewController = NSHostingController(
+                rootView: view.environment(\.controlActiveState, .key))
             window.setContentSize(size)
-            window.orderBack(nil)
+            // Controls draw as active only in the key window of the active app.
+            NSApp.setActivationPolicy(.regular)
+            NSApp.activate()
+            window.makeKeyAndOrderFront(nil)
             try? await Task.sleep(for: .milliseconds(600))
             guard let content = window.contentView?.superview ?? window.contentView else { return }
             content.layoutSubtreeIfNeeded()
