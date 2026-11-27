@@ -373,7 +373,7 @@ struct LayoutPreviewDiagram: View {
                     )
                     .insetBy(dx: 2, dy: 2)
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(index == 0 ? Color(red: 0.85, green: 0.40, blue: 0.23) : Color(white: 0.92))
+                        .fill(index == 0 ? Color.ordino : Color(white: 0.92))
                         .frame(width: max(1, rect.width), height: max(1, rect.height))
                         .offset(x: rect.minX, y: rect.minY)
                         .animation(.smooth(duration: 0.2), value: r)
@@ -1009,7 +1009,7 @@ struct GridPreview: View {
                 RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.primary.opacity(0.08))
                 ForEach(0..<(columns * rows), id: \.self) { i in
                     RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-                        .fill(i == 0 ? Color.accentColor : Color.accentColor.opacity(0.45))
+                        .fill(i == 0 ? Color.ordino : Color.ordino.opacity(0.4))
                         .frame(width: max(1, w), height: max(1, h))
                         .offset(
                             x: pad + Double(i % columns) * (w + gap), y: pad + Double(i / columns) * (h + gap))

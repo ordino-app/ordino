@@ -145,6 +145,10 @@ struct SettingsView: View {
     @Bindable var navigation: SettingsNavigation
 
     var body: some View {
+        settingsBody.tint(.ordino)
+    }
+
+    private var settingsBody: some View {
         NavigationSplitView {
             List(SettingsPane.allCases, selection: Binding($navigation.pane)) { pane in
                 NavigationLink(value: pane) {
@@ -205,13 +209,19 @@ struct SidebarFooter: View {
 }
 
 /// The ordino mark in its brand colours: terracotta primary tile, neutral stack.
+extension Color {
+    /// ordino's terracotta (brand guide #D9653B): Settings controls, previews and the snap bar use it so the app
+    /// and the website read as one product.
+    static let ordino = Color(red: 0.851, green: 0.396, blue: 0.231)
+}
+
 struct BrandMarkColored: View {
     var body: some View {
         GeometryReader { geo in
             let s = min(geo.size.width, geo.size.height) / 48
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 4.3 * s, style: .continuous)
-                    .fill(Color(red: 0.85, green: 0.40, blue: 0.23))
+                    .fill(Color.ordino)
                     .frame(width: 24.6 * s, height: 48 * s)
                 RoundedRectangle(cornerRadius: 4.3 * s, style: .continuous)
                     .fill(Color.primary.opacity(0.85))

@@ -225,7 +225,7 @@ struct MiniWindow: View {
         .overlay(
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .strokeBorder(
-                    isPrimary ? Color.accentColor : Color.black.opacity(isHovered ? 0.35 : 0.14),
+                    isPrimary ? Color.ordino : Color.black.opacity(isHovered ? 0.35 : 0.14),
                     lineWidth: isPrimary ? 1.5 : 0.5)
         )
         .shadow(color: .black.opacity(isPrimary ? 0.32 : 0.22), radius: isPrimary ? 3 : 1.5, y: 1)
@@ -250,11 +250,11 @@ struct LayoutPicker: View {
                 } label: {
                     Image(nsImage: ActionIcons.image(for: layout, windowCount: windowCount))
                         .renderingMode(.template)
-                        .foregroundStyle(selected ? Color.accentColor : Color.secondary)
+                        .foregroundStyle(selected ? Color.ordino : Color.secondary)
                         .frame(maxWidth: .infinity, minHeight: 26)
                         .background(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(selected ? Color.accentColor.opacity(0.16) : Color.clear)
+                                .fill(selected ? Color.ordino.opacity(0.16) : Color.clear)
                         )
                         .contentShape(Rectangle())
                 }
