@@ -68,13 +68,33 @@ enum ShortcutPreset: String, CaseIterable, Identifiable, Sendable {
 
     typealias S = KeyboardShortcuts.Shortcut
 
+    /// The three main shortcuts are ⌘⌥ + A/R/Z (easy to reach); the rest keep ⌃⌥⌘.
     static let arrangeDefaults: [Command: S] = [
-        .arrange: S(.a, modifiers: [.control, .option, .command]),
+        .arrange: S(.a, modifiers: [.option, .command]),
         .nextLayout: S(.rightBracket, modifiers: [.control, .option, .command]),
         .previousLayout: S(.leftBracket, modifiers: [.control, .option, .command]),
+        .rotate: S(.r, modifiers: [.option, .command]),
+        .undo: S(.z, modifiers: [.option, .command]),
+    ]
+
+    /// Defaults before 0.2.0-beta.5; users who still have them get the new ones once.
+    static let previousArrangeDefaults: [Command: S] = [
+        .arrange: S(.a, modifiers: [.control, .option, .command]),
         .rotate: S(.r, modifiers: [.control, .option, .command]),
         .undo: S(.z, modifiers: [.control, .option, .command]),
     ]
+
+    /// Moves the main shortcuts from ⌃⌥⌘ to ⌘⌥, but only where the user kept the old default.
+    @MainActor
+    static func migrateMainShortcuts() {
+        let key = "mainShortcutsMigrated"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        for (command, old) in previousArrangeDefaults
+        where KeyboardShortcuts.getShortcut(for: command.shortcutName) == old {
+            KeyboardShortcuts.setShortcut(arrangeDefaults[command], for: command.shortcutName)
+        }
+        UserDefaults.standard.set(true, forKey: key)
+    }
 
     var windowShortcuts: [WindowAction: S] {
         let optCmd: NSEvent.ModifierFlags = [.option, .command]

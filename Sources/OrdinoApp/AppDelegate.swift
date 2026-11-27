@@ -419,7 +419,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Upgraders keep what they had (no new global shortcuts taken without asking,
     /// and next/previous layout stay on ⌃⌥⌘←/→); they can pick a preset in Settings.
     private func setUpShortcutsIfNeeded() {
-        guard settings.needsShortcutSetup else { return }
+        guard settings.needsShortcutSetup else { return ShortcutPreset.migrateMainShortcuts() }
         ShortcutPreset.applyArrangeDefaults()
         if settings.isUpgradeFromEarlierVersion {
             for (command, shortcut) in ShortcutPreset.legacyLayoutCycling {
@@ -431,6 +431,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         settings.shortcutPreset.apply()
         settings.needsShortcutSetup = false
+        UserDefaults.standard.set(true, forKey: "mainShortcutsMigrated")
     }
 
     private func registerShortcutHandlers() {

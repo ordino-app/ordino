@@ -32,7 +32,7 @@
                         let model = MenuCardModel()
                         model.preview = samplePreview(layout: layout, count: count)
                         let card = MenuCard(
-                            model: model, arrangeShortcut: "⌃⌥⌘A", onArrange: { _ in }, onHover: { _ in },
+                            model: model, arrangeShortcut: "⌥⌘A", onArrange: { _ in }, onHover: { _ in },
                             onPickPrimary: { _ in }
                         )
                         .background(.regularMaterial)

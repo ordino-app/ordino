@@ -27,10 +27,10 @@ make run-app     # builds build/ordino.app and launches it
 
 | Default shortcut | Action |
 |---|---|
-| ⌃⌥⌘A | Arrange the display. Press again within 2 s for the next layout |
+| ⌥⌘A | Arrange the display. Press again within 2 s for the next layout |
 | ⌃⌥⌘] / ⌃⌥⌘[ | Next / previous layout |
-| ⌃⌥⌘R | Rotate windows through the slots |
-| ⌃⌥⌘Z | Undo (a run of quick presses is one step) |
+| ⌥⌘R | Rotate windows through the slots |
+| ⌥⌘Z | Undo (a run of quick presses is one step) |
 
 **Window actions** for the active window, like Rectangle: halves, corners, thirds, fourths, sixths, maximize, almost maximize, maximize height, larger, smaller, center, move to edge, restore, next/previous display. Pressing a half again cycles ½ → ⅔ → ⅓. They're in the menu, and get shortcuts from a preset (Rectangle-style ⌃⌥ arrows by default, Spectacle-style ⌥⌘ arrows, or none). Every shortcut can be changed in **Settings › Shortcuts**. If another window manager is running, ordino leaves window shortcuts unassigned so they don't collide.
 
