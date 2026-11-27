@@ -215,7 +215,7 @@
   /* the tablet and the small laptop stack the three steps (system.css takes span-4 cards two-up under 1280) */
   @media (min-width: 640px) and (max-width: 1279px) { #install { --h: 2; } }
   @media (max-width: 639px) { #shortcuts .frame--split { --ratio: 80%; } }
-  @media (min-width: 1280px) { html #install .panel { --p-h: calc(100svh - 448px); } }
+  @media (min-width: 1280px) { html #install .panel { --p-h: calc(100svh - 500px); } }
   #statement .mo-la__sub { color: var(--ink); }
   /* a narrow phone: the logo steps down so the logo, the Download button and the menu button share the bar */
   @media (max-width: 379px) { .nav__logo img { height: 19px; width: auto; } .nav:not(.is-open) .nav__actions .btn { padding-inline: var(--s-3); } }
@@ -230,7 +230,7 @@
     #layouts .lay { flex-wrap: wrap; align-content: center; }
     #layouts .lay--count .scr { --sh: 60px; } #layouts .lay--primary .scr { --sh: 200px; } #layouts .lay--next .scr { --sh: 84px; }
     #layouts .lay--fit .scr--uw { --sh: 88px; } #layouts .lay--fit .scr--pt { --sh: 240px; }
-    html #install .panel { --p-h: calc((200svh - 312px) / 3 - 170px); }
+    html #install .panel { --p-h: calc((200svh - 312px) / 3 - 205px); }
   }
   /* ---- install steps */
   #install .panel { --p-h: 260px; }
@@ -252,7 +252,7 @@
   .sw::after { content: ""; position: absolute; right: 2px; top: 2px; width: 15px; height: 15px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / .2); }
   .sw--off { background: #d1d1d6; } .sw--off::after { right: auto; left: 2px; }
   .sheet__who { display: flex; align-items: center; gap: 8px; }
-  @media (max-width: 639px) { html #install .panel { --p-h: 290px; } #install { --hm: 2; } }
+  @media (max-width: 639px) { html #install .panel { --p-h: 262px; } #install { --hm: 2; } }
 
   /* ---- the close: the client's wordmark across the .wrap (brand rule: the name is never set in another face) */
   .close__word svg { display: block; width: 100%; height: auto; }
@@ -335,7 +335,9 @@
   .brew__hint { padding: 4px 8px; border-radius: 6px; background: var(--bg); color: var(--ink); }
   .brew:hover { border-color: var(--muted); } .brew:active { transform: scale(.98); }
   .brew:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  @media (max-width: 639px) { .brew { display: none; } }   /* Homebrew is a Mac tool; the phone hero stays as it was */
+  .brew--step { margin-top: var(--s-2); align-self: flex-start; max-width: 100%; }
+  .brew--step code { overflow-wrap: anywhere; text-align: left; }
+  @media (max-width: 639px) { .brew:not(.brew--step) { display: none; } .brew--step { font-size: 12px; } .brew--step code { font-size: 11.5px; } }   /* Homebrew is a Mac tool; the phone hero stays as it was */
 
   /* menu item icons (drawn, like the macOS menu's SF Symbols) */
   .mi__i { width: 13px; height: 10px; margin-right: 7px; border: 1.3px solid currentColor; border-radius: 2.5px; opacity: .75; flex: none; position: relative; }
@@ -557,8 +559,8 @@
           <h3>Tries the next layout on a second press</h3>
           <p>Press <span class="kbd">⌥⌘A</span> again within 2 seconds for the next layout. <span class="kbd">⌥⌘Z</span> undoes a run of quick presses in one step.</p>
           <div class="panel" data-fx="painterly-landscape" data-fx-seed="58" data-fx-params='{"drift":0,"speed":0,"blur":1,"brush":0.35,"slope":0,"hillY":0.3,"horizon":0.62}' data-fx-palette='{"bg":"#d9ccb7","surface":"#e9e0d2","ink":"#2a2622","accent":"#a8794a"}'>
-            <div class="lay lay--next" role="img" aria-label="Pressing Control Option Command A a second time within 2 seconds turns Master + Stack into three columns">
-              <div class="keys"><span>⌃</span><span>⌥</span><span>⌘</span><span>A</span></div>
+            <div class="lay lay--next" role="img" aria-label="Pressing Option Command A a second time within 2 seconds turns Master + Stack into three columns">
+              <div class="keys"><span>⌥</span><span>⌘</span><span>A</span></div>
               <div class="lay__row">
                 <div class="scr scr--3"><i class="p"></i><i></i><i></i></div>
                 <span class="arrow"><svg viewBox="0 0 36 12" aria-hidden="true"><path d="M1 6h32M28 1.5 33 6l-5 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>2 s</span>
@@ -647,8 +649,8 @@
     <div class="wrap">
       <h2 class="mo-la__type" id="statement-h">Every window, in its place.</h2>
       <p class="mo-la__sub">Arranging a screen that is already arranged changes nothing. <span class="kbd">⌥⌘R</span> rotates the windows through the slots.</p>
-      <div class="rot" role="img" aria-label="Control Option Command R moves a code editor, a browser and a design tool through the three slots, one slot each press">
-        <div class="keys keys--lg"><span>⌃</span><span>⌥</span><span>⌘</span><span>R</span></div>
+      <div class="rot" role="img" aria-label="Option Command R moves a code editor, a browser and a design tool through the three slots, one slot each press">
+        <div class="keys keys--lg"><span>⌥</span><span>⌘</span><span>R</span></div>
         <div class="scr scr--3"><i class="p slot"><img loading="lazy" width="26" height="26" src="media/icons/code.svg" alt=""></i><i class="slot"><img loading="lazy" width="26" height="26" src="media/icons/browser.svg" alt=""></i><i class="slot"><img loading="lazy" width="26" height="26" src="media/icons/design.svg" alt=""></i></div>
         <div class="scr scr--3"><i class="p slot"><img loading="lazy" width="26" height="26" src="media/icons/browser.svg" alt=""></i><i class="slot"><img loading="lazy" width="26" height="26" src="media/icons/design.svg" alt=""></i><i class="slot"><img loading="lazy" width="26" height="26" src="media/icons/code.svg" alt=""></i></div>
         <div class="scr scr--3"><i class="p slot"><img loading="lazy" width="26" height="26" src="media/icons/design.svg" alt=""></i><i class="slot"><img loading="lazy" width="26" height="26" src="media/icons/code.svg" alt=""></i><i class="slot"><img loading="lazy" width="26" height="26" src="media/icons/browser.svg" alt=""></i></div>
@@ -665,7 +667,8 @@
         <article class="card card--row card--open span-4 m-nolift">
           <span class="step-num">1</span>
           <h3>Drag the app to Applications</h3>
-          <p>Download the zip, double-click it and drag ordino into the Applications folder.</p>
+          <p>Download the zip, double-click it and drag ordino into the Applications folder. Or install it with Homebrew:</p>
+          <button type="button" class="brew brew--step" data-copy="#brew-cmd-2" aria-label="Copy the Homebrew install command"><span class="brew__label">Homebrew</span><code id="brew-cmd-2">brew install --cask ordino-app/tap/ordino</code><span class="brew__hint" aria-hidden="true">Copy</span></button>
           <div class="panel">
             <div class="inst" role="img" aria-label="The ordino zip file and the ordino app going into the Applications folder">
               <div class="inst__drag">
