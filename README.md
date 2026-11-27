@@ -9,7 +9,9 @@
 
 **Every window, in its place.** ordino is a free, open-source macOS menu bar app that arranges *all* windows on a display with one keystroke. With 4 windows you get a 2x2 grid, with 3 a master + stack, and so on. It adapts to the window count and the display shape (laptop, ultrawide, portrait), respects minimum window sizes, and can be undone.
 
-> Status: **early prototype**. Layout engine, window layer and a first menu bar app work; signing, auto-update and settings come next.
+<p align="center"><img src="docs/media/demo.gif" alt="Three scattered windows; after ⌥⌘A the code editor takes the large left slot and the browser and design tool stack on the right; ⌥⌘Z puts them back" width="720"></p>
+
+> Status: **beta**. Arranging, window actions, settings and auto-update work. The app is not notarized, so the first launch needs one extra step (below).
 
 ## Install
 
